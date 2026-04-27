@@ -64,7 +64,7 @@ export default function VPSMetrics() {
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.3 }}
-      className="fixed top-20 right-4 z-20 glass-panel rounded-2xl overflow-hidden border-glow"
+      className="fixed top-20 left-4 z-20 glass-panel rounded-2xl overflow-hidden border-glow"
       style={{ maxWidth: expanded ? 320 : 200 }}
     >
       <button
