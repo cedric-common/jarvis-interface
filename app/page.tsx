@@ -159,12 +159,84 @@ export default function Home() {
   }, [isListening, startListening, stopListening]);
 
   const handleQuickAction = useCallback(
-    (command: string) => {
+    async (command: string) => {
       setChatOpen(true);
+
+      // Special handling for Notion tasks
+      if (command === "Mes tâches du jour") {
+        addMessage("user", command);
+        setIsTyping(true);
+        try {
+          const res = await fetch("/api/notion-tasks");
+          const data = await res.json();
+
+          if (data.error) {
+            addMessage("assistant", `❌ Erreur Notion : ${data.error}`);
+          } else if (data.tasks && data.tasks.length > 0) {
+            const today = new Date().toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            });
+            let response = `📋 **Tâches du ${today}**\n\n`;
+
+            // Group by client
+            const byClient: Record<string, typeof data.tasks> = {};
+            for (const task of data.tasks) {
+              const c = task.client || "Général";
+              if (!byClient[c]) byClient[c] = [];
+              byClient[c].push(task);
+            }
+
+            for (const [client, tasks] of Object.entries(byClient)) {
+              response += `🏢 **${client}**\n`;
+              for (const task of tasks) {
+                const statusEmoji = task.status
+                  ? task.status.toLowerCase().includes("en cours")
+                    ? "🔵"
+                    : task.status.toLowerCase().includes("urgent")
+                    ? "🔴"
+                    : "⏳"
+                  : "⏳";
+                response += `  ${statusEmoji} ${task.title}${
+                  task.status ? ` (*${task.status}*)` : ""
+                }\n`;
+              }
+              response += "\n";
+            }
+
+            const id = addMessage("assistant", response.trim());
+            if (!muted) {
+              lastSpokenIdRef.current = id;
+              speak(
+                `Tu as ${data.tasks.length} tâche${
+                  data.tasks.length > 1 ? "s" : ""
+                } aujourd'hui. Consulte l'écran pour les détails.`
+              );
+            }
+          } else {
+            const id = addMessage(
+              "assistant",
+              "✨ **Pas de tâche prévue aujourd'hui !**\n\nProfite de cette journée pour avancer sereinement. 💪"
+            );
+            if (!muted) {
+              lastSpokenIdRef.current = id;
+              speak("Pas de tâche prévue aujourd'hui. Belle journée !");
+            }
+          }
+        } catch (err: any) {
+          addMessage("assistant", "❌ Impossible de récupérer les tâches Notion. Vérifie la connexion.");
+        } finally {
+          setIsTyping(false);
+        }
+        return;
+      }
+
+      // Default: send to Hermes AI
       addMessage("user", command);
       sendMessageToHermes(command);
     },
-    [addMessage, sendMessageToHermes]
+    [addMessage, sendMessageToHermes, muted, speak]
   );
 
   const handleReplayLastAssistant = useCallback(() => {
