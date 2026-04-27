@@ -29,39 +29,94 @@ export default function Home() {
 
   const { speak, stop: stopSpeaking } = useSpeechSynthesis();
   const lastSpokenIdRef = useRef<string | null>(null);
+  const streamingTextRef = useRef<string>("");
 
   const addMessage = useCallback((role: "user" | "assistant", content: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString() + Math.random(),
-        role,
-        content,
-        timestamp: new Date(),
-      },
-    ]);
+    const id = Date.now().toString() + Math.random();
+    setMessages((prev) => [...prev, { id, role, content, timestamp: new Date() }]);
+    return id;
   }, []);
 
-  const sendMessageToAPI = useCallback(async (text: string) => {
+  const updateLastAssistantMessage = useCallback((content: string) => {
+    setMessages((prev) => {
+      const last = [...prev].reverse().find((m) => m.role === "assistant");
+      if (!last) return prev;
+      return prev.map((m) => (m.id === last.id ? { ...m, content } : m));
+    });
+  }, []);
+
+  const sendMessageToHermes = useCallback(async (text: string) => {
     setIsTyping(true);
     setWaveformActive(true);
+    streamingTextRef.current = "";
+
+    // Build history (last 10 messages)
+    const history = messages.slice(-10).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/hermes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history }),
       });
-      const data = await res.json();
-      if (data.response) {
-        addMessage("assistant", data.response);
+
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      // Create empty assistant message
+      const assistantId = addMessage("assistant", "");
+
+      // Read stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") break;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                streamingTextRef.current += parsed.text;
+                updateLastAssistantMessage(streamingTextRef.current);
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
       }
     } catch (err) {
-      addMessage("assistant", "Désolé, une erreur de connexion est survenue. Veuillez réessayer.");
+      // Fallback to old API
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+        const data = await res.json();
+        if (data.response) {
+          addMessage("assistant", data.response);
+        }
+      } catch {
+        addMessage("assistant", "Désolé, une erreur de connexion est survenue. Veuillez réessayer.");
+      }
     } finally {
       setIsTyping(false);
       setWaveformActive(false);
     }
-  }, [addMessage]);
+  }, [messages, addMessage, updateLastAssistantMessage]);
 
   // Send transcript when listening stops
   useEffect(() => {
@@ -69,9 +124,9 @@ export default function Home() {
       const text = transcript.trim();
       addMessage("user", text);
       resetTranscript();
-      sendMessageToAPI(text);
+      sendMessageToHermes(text);
     }
-  }, [isListening, transcript, addMessage, resetTranscript, sendMessageToAPI]);
+  }, [isListening, transcript, addMessage, resetTranscript, sendMessageToHermes]);
 
   // Disable waveform if stopped with no transcript
   useEffect(() => {
@@ -85,10 +140,13 @@ export default function Home() {
     if (muted) return;
     const lastMsg = messages[messages.length - 1];
     if (lastMsg && lastMsg.role === "assistant" && lastMsg.id !== lastSpokenIdRef.current) {
-      lastSpokenIdRef.current = lastMsg.id;
-      speak(lastMsg.content);
+      // Only speak when the message is complete (not streaming)
+      if (!isTyping && lastMsg.content.length > 0) {
+        lastSpokenIdRef.current = lastMsg.id;
+        speak(lastMsg.content);
+      }
     }
-  }, [messages, muted, speak]);
+  }, [messages, muted, isTyping, speak]);
 
   const handleToggleListening = useCallback(() => {
     if (isListening) {
@@ -104,9 +162,9 @@ export default function Home() {
     (command: string) => {
       setChatOpen(true);
       addMessage("user", command);
-      sendMessageToAPI(command);
+      sendMessageToHermes(command);
     },
-    [addMessage, sendMessageToAPI]
+    [addMessage, sendMessageToHermes]
   );
 
   const handleReplayLastAssistant = useCallback(() => {
@@ -200,7 +258,7 @@ export default function Home() {
           transition={{ delay: 1 }}
           className="mt-16 text-xs font-mono text-white/20 text-center max-w-md px-4"
         >
-          Interface de contrôle vocale — Prototype v0.2
+          Interface de contrôle vocale — Prototype v0.3
         </motion.p>
       </div>
 
