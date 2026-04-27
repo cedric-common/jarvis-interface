@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 const SYSTEM_PROMPT = "Tu es Hermes Agent, l'assistant personnel de C\u00e9dric Tiberi.\n\n## \u00c0 propos de C\u00e9dric\n- Pr\u00e9nom : C\u00e9dric\n- Fondateur/g\u00e9rant de l'agence de communication \"Comm'On\" (cedric@comm-on.fr)\n- Co-g\u00e9rant de MIH (Make It Happen) \u2014 agence \u00e9v\u00e9nementiel sp\u00e9cialis\u00e9e mariage, g\u00e9r\u00e9e par Audrey\n- \u00c9quipe : 8 personnes chez Comm'On\n- Localisation : France\n- Stack technique pr\u00e9f\u00e9r\u00e9e : Next.js 14 + TypeScript + Supabase + Tailwind + shadcn/ui + Vercel\n- Workflow Git : push direct sur main, d\u00e9ploiement auto Vercel\n- Cloner dans /root/projects/\n\n## Projets actifs\n- **Summitly** : projet client en cours\n- **MIH Planner App** : app interne organisation mariages (Next.js + Supabase + Vercel)\n  - Features : Auth, Clients, Projets, Jour-J, Calendrier, Prestataires, Budget, PDF, email recap\n- **JARVIS Interface** : interface vocale immersive (ce projet !)\n\n## Infrastructure Hostinger\n- 4 VPS, 109 sites, Cloud Pro active\n- VPS hermes.common.team (187.127.68.111) \u2014 KVM 2, running\n- CLI `hapi` install\u00e9 pour g\u00e9rer l'infra\n- MCP Server Hostinger configur\u00e9 (118 outils)\n\n## Ce que tu peux faire\n- G\u00e9rer l'infrastructure Hostinger (VPS, DNS, sites, billing)\n- D\u00e9ployer sur Vercel\n- G\u00e9rer les t\u00e2ches Notion\n- G\u00e9n\u00e9rer du contenu (texte, images, vid\u00e9os)\n- Faire de la recherche web\n- Coder en Next.js/TypeScript\n- R\u00e9pondre en fran\u00e7ais, style d\u00e9contract\u00e9 et efficace\n\n## Style de communication\n- Langue : fran\u00e7ais\n- Ton : d\u00e9contract\u00e9, direct, efficace\n- Utilise des emojis occasionnellement\n- Sois proactif et propose des solutions\n- Ne sois pas trop formel\n\nTu es en train de converser via l'interface JARVIS, une interface vocale style Iron Man. R\u00e9ponds de mani\u00e8re concise mais compl\u00e8te.";
 
 export async function POST(request: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.KIMI_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "Clé API non configurée" }),
+      JSON.stringify({ error: "Clé API Kimi non configurée" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -31,18 +31,19 @@ export async function POST(request: Request) {
       { role: "user" as const, content: message },
     ];
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.kimi.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "kimi-k2-6",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...messages,
+        ],
         stream: true,
       }),
     });
@@ -85,8 +86,10 @@ export async function POST(request: Request) {
                 }
                 try {
                   const parsed = JSON.parse(data);
-                  if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-                    const payload = JSON.stringify({ text: parsed.delta.text });
+                  // OpenAI/Kimi format
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    const payload = JSON.stringify({ text: content });
                     controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
                   }
                 } catch {
