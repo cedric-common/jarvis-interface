@@ -1,77 +1,102 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export default function useSpeechSynthesis() {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const synth = window.speechSynthesis;
-
-    const loadVoices = () => {
-      const available = synth.getVoices();
-      setVoices(available);
-    };
-
-    loadVoices();
-
-    if (synth.onvoiceschanged !== undefined) {
-      synth.onvoiceschanged = loadVoices;
-    }
-
-    return () => {
-      if (synth.onvoiceschanged !== undefined) {
-        synth.onvoiceschanged = null;
-      }
-    };
-  }, []);
-
-  const getFrenchVoice = useCallback(() => {
-    let voice = voices.find((v) => v.lang === "fr-FR");
-    if (!voice) {
-      voice = voices.find((v) => v.lang.startsWith("fr"));
-    }
-    return voice || null;
-  }, [voices]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const speak = useCallback(
-    (text: string) => {
-      if (typeof window === "undefined") return;
-      const synth = window.speechSynthesis;
-      if (synth.speaking) {
-        synth.cancel();
+    async (text: string) => {
+      // Cancel any ongoing speech
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      const frenchVoice = getFrenchVoice();
-      if (frenchVoice) {
-        utterance.voice = frenchVoice;
-        utterance.lang = frenchVoice.lang;
-      } else {
-        utterance.lang = "fr-FR";
+      setIsSpeaking(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("TTS error:", err);
+          // Fallback to Web Speech API if ElevenLabs fails
+          fallbackSpeak(text);
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(url);
+        };
+
+        await audio.play();
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          setIsSpeaking(false);
+          return;
+        }
+        console.error("TTS fetch error:", err);
+        fallbackSpeak(text);
       }
-      utterance.pitch = 1.0;
-      utterance.rate = 1.1;
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-
-      utteranceRef.current = utterance;
-      synth.speak(utterance);
     },
-    [getFrenchVoice]
+    []
   );
 
-  const stop = useCallback(() => {
+  const fallbackSpeak = (text: string) => {
     if (typeof window === "undefined") return;
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    if (synth.speaking) synth.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "fr-FR";
+    utterance.pitch = 1.0;
+    utterance.rate = 1.1;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    synth.speak(utterance);
+  };
+
+  const stop = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (typeof window !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   }, []);
 
-  return { speak, stop, isSpeaking, voices };
+  return { speak, stop, isSpeaking };
 }
