@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useMemo } from "react";
-import { User, Cpu, Mic, Volume2 } from "lucide-react";
+import { User, Cpu, Mic, Volume2, X } from "lucide-react";
 import TypingIndicator from "./TypingIndicator";
 
 export interface Message {
@@ -18,6 +18,7 @@ interface ChatPanelProps {
   isListening?: boolean;
   interimTranscript?: string;
   onReplayLastAssistant?: () => void;
+  onClose?: () => void;
   isTyping?: boolean;
 }
 
@@ -27,6 +28,7 @@ export default function ChatPanel({
   isListening,
   interimTranscript,
   onReplayLastAssistant,
+  onClose,
   isTyping,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -49,11 +51,11 @@ export default function ChatPanel({
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: 50, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed right-4 top-4 bottom-4 w-[380px] max-w-[calc(100vw-2rem)] z-20"
+          className="fixed right-3 sm:right-4 top-16 sm:top-20 bottom-24 sm:bottom-4 w-[calc(100vw-1.5rem)] sm:w-[380px] sm:max-w-[calc(100vw-2rem)] z-20"
         >
-          <div className="glass-panel-strong rounded-3xl h-full flex flex-col overflow-hidden border-glow">
+          <div className="glass-panel-strong rounded-2xl sm:rounded-3xl h-full flex flex-col overflow-hidden border-glow">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-white/5 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-cyan-glow/20 flex items-center justify-center">
                   <Cpu className="w-4 h-4 text-cyan-glow" />
@@ -66,21 +68,34 @@ export default function ChatPanel({
                   </div>
                 </div>
               </div>
-              {lastAssistantMessage && (
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={onReplayLastAssistant}
-                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-cyan-glow hover:border-cyan-glow/30 transition-colors"
-                  title="Rejouer la dernière réponse"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </motion.button>
-              )}
+              <div className="flex items-center gap-2">
+                {lastAssistantMessage && (
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={onReplayLastAssistant}
+                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-cyan-glow hover:border-cyan-glow/30 transition-colors"
+                    title="Rejouer la dernière réponse"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </motion.button>
+                )}
+                {onClose && (
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={onClose}
+                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/30 transition-colors sm:hidden"
+                    title="Fermer"
+                  >
+                    <X className="w-4 h-4" />
+                  </motion.button>
+                )}
+              </div>
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {messages.length === 0 && !interimTranscript && !isListening && (
                 <div className="flex flex-col items-center justify-center h-full text-white/20 space-y-3">
                   <Cpu className="w-10 h-10" />
@@ -155,7 +170,7 @@ export default function ChatPanel({
             </div>
 
             {/* Input hint */}
-            <div className="px-5 py-3 border-t border-white/5">
+            <div className="px-4 sm:px-5 py-3 border-t border-white/5 flex-shrink-0">
               <div className="flex items-center gap-2 text-white/20">
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-glow/50 animate-pulse" />
                 <span className="text-[10px] font-mono uppercase tracking-wider">

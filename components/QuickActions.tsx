@@ -66,7 +66,7 @@ export default function QuickActions({ onAction }: QuickActionsProps) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5, type: "spring", stiffness: 100 }}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20"
+      className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="glass-panel rounded-2xl px-4 py-3 flex items-center gap-2 border-glow">
         {actions.map((action, i) => (

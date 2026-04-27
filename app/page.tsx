@@ -132,7 +132,7 @@ export default function Home() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-6 py-4"
+        className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 sm:px-6 pt-[env(safe-area-inset-top)] pb-2 sm:py-4"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-glow/20 flex items-center justify-center border border-cyan-glow/30">
@@ -175,7 +175,7 @@ export default function Home() {
       </motion.header>
 
       {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pb-24 sm:pb-0">
         {/* Waveform */}
         <AnimatePresence>
           {waveformActive && (
@@ -211,6 +211,7 @@ export default function Home() {
         isListening={isListening}
         interimTranscript={interimTranscript}
         onReplayLastAssistant={handleReplayLastAssistant}
+        onClose={() => setChatOpen(false)}
         isTyping={isTyping}
       />
 
