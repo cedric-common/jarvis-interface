@@ -31,14 +31,14 @@ export async function POST(request: Request) {
       { role: "user" as const, content: message },
     ];
 
-    const response = await fetch("https://api.kimi.com/v1/chat/completions", {
+    const response = await fetch("https://api.moonshot.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "kimi-k2-6",
+        model: "kimi-k2.6",
         max_tokens: 2048,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
