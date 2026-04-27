@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Volume2, VolumeX } from "lucide-react";
+import { MessageSquare, X, Volume2, VolumeX, Ear, EarOff } from "lucide-react";
 import HUDCanvas from "@/components/HUDCanvas";
 import Waveform from "@/components/Waveform";
 import VoiceOrb from "@/components/VoiceOrb";
 import ChatPanel, { Message } from "@/components/ChatPanel";
 import QuickActions from "@/components/QuickActions";
+import VPSMetrics from "@/components/VPSMetrics";
 import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import useSpeechSynthesis from "@/hooks/useSpeechSynthesis";
 
@@ -17,6 +18,8 @@ export default function Home() {
   const [waveformActive, setWaveformActive] = useState(false);
   const [muted, setMuted] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationMode, setConversationMode] = useState(false);
+  const [isSpeakingTTS, setIsSpeakingTTS] = useState(false);
 
   const {
     isListening,
@@ -25,11 +28,23 @@ export default function Home() {
     startListening,
     stopListening,
     resetTranscript,
-  } = useSpeechRecognition();
+  } = useSpeechRecognition({
+    continuous: conversationMode,
+    autoRestart: conversationMode && !isSpeakingTTS,
+  });
 
-  const { speak, stop: stopSpeaking } = useSpeechSynthesis();
+  const { speak, stop: stopSpeaking, isSpeaking } = useSpeechSynthesis();
   const lastSpokenIdRef = useRef<string | null>(null);
   const streamingTextRef = useRef<string>("");
+  const conversationModeRef = useRef(conversationMode);
+
+  useEffect(() => {
+    conversationModeRef.current = conversationMode;
+  }, [conversationMode]);
+
+  useEffect(() => {
+    setIsSpeakingTTS(isSpeaking);
+  }, [isSpeaking]);
 
   const addMessage = useCallback((role: "user" | "assistant", content: string) => {
     const id = Date.now().toString() + Math.random();
@@ -148,6 +163,16 @@ export default function Home() {
     }
   }, [messages, muted, isTyping, speak]);
 
+  // Conversation mode: restart listening after TTS finishes
+  useEffect(() => {
+    if (conversationMode && !isSpeaking && !isTyping && !isListening) {
+      const timer = setTimeout(() => {
+        startListening();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [conversationMode, isSpeaking, isTyping, isListening, startListening]);
+
   const handleToggleListening = useCallback(() => {
     if (isListening) {
       stopListening();
@@ -157,6 +182,19 @@ export default function Home() {
       setWaveformActive(true);
     }
   }, [isListening, startListening, stopListening]);
+
+  const toggleConversationMode = useCallback(() => {
+    setConversationMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        stopListening();
+      } else {
+        setChatOpen(true);
+        startListening();
+      }
+      return next;
+    });
+  }, [startListening, stopListening]);
 
   const handleQuickAction = useCallback(
     async (command: string) => {
@@ -258,6 +296,9 @@ export default function Home() {
       {/* Background HUD */}
       <HUDCanvas />
 
+      {/* VPS Metrics Panel */}
+      <VPSMetrics />
+
       {/* Top bar */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -275,6 +316,21 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Conversation Mode Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={toggleConversationMode}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              conversationMode
+                ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 animate-pulse"
+                : "bg-white/5 border border-white/10 text-white/40 hover:text-white/70"
+            }`}
+            title={conversationMode ? "Mode conversation actif" : "Activer mode conversation"}
+          >
+            {conversationMode ? <Ear className="w-4 h-4" /> : <EarOff className="w-4 h-4" />}
+          </motion.button>
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -320,6 +376,23 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* Conversation Mode Indicator */}
+        <AnimatePresence>
+          {conversationMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="mb-4 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20"
+            >
+              <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Mode Conversation
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Voice Orb */}
         <VoiceOrb isListening={isListening} onToggle={handleToggleListening} />
 
@@ -330,7 +403,9 @@ export default function Home() {
           transition={{ delay: 1 }}
           className="mt-16 text-xs font-mono text-white/20 text-center max-w-md px-4"
         >
-          Interface de contrôle vocale — Prototype v0.3
+          {conversationMode
+            ? "Parlez naturellement — JARVIS écoute en continu"
+            : "Interface de contrôle vocale — Prototype v0.4"}
         </motion.p>
       </div>
 
