@@ -5,9 +5,25 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const fetchAllSites = async () => {
+      const allSites: Array<unknown> = []
+      for (let page = 1; page <= 10; page += 1) {
+        const data = await fetchHostinger(`/hosting/v1/websites?page=${page}&per_page=100`)
+        const dataRecord = data as { data?: unknown }
+        const pageSites = Array.isArray(data)
+          ? data
+          : Array.isArray(dataRecord.data)
+            ? dataRecord.data
+            : []
+        allSites.push(...pageSites)
+        if (!Array.isArray(pageSites) || pageSites.length < 100) break
+      }
+      return allSites
+    }
+
     const [vpsData, sitesData] = await Promise.allSettled([
       fetchHostinger('/vps/v1/virtual-machines'),
-      fetchHostinger('/hosting/v1/websites'),
+      fetchAllSites(),
     ])
 
     let vpsList: Array<{ status?: string; state?: string }> = []
@@ -15,12 +31,12 @@ export async function GET() {
 
     if (vpsData.status === 'fulfilled') {
       const data = vpsData.value
-      vpsList = Array.isArray(data) ? data : data?.data || []
+      const dataRecord = data as { data?: Array<{ status?: string; state?: string }> }
+      vpsList = Array.isArray(data) ? data : dataRecord.data || []
     }
 
     if (sitesData.status === 'fulfilled') {
-      const data = sitesData.value
-      sitesList = Array.isArray(data) ? data : data?.data || []
+      sitesList = sitesData.value
     }
 
     const totalVps = vpsList.length
