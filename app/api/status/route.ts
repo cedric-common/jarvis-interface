@@ -10,7 +10,7 @@ export async function GET() {
       fetchHostinger('/hosting/v1/websites'),
     ])
 
-    let vpsList: Array<{ status?: string }> = []
+    let vpsList: Array<{ status?: string; state?: string }> = []
     let sitesList: Array<unknown> = []
 
     if (vpsData.status === 'fulfilled') {
@@ -25,7 +25,10 @@ export async function GET() {
 
     const totalVps = vpsList.length
     const onlineVps = vpsList.filter(
-      (vps) => vps.status === 'running' || vps.status === 'online' || vps.status === 'active'
+      (vps) => {
+        const state = vps.state || vps.status
+        return state === 'running' || state === 'online' || state === 'active'
+      }
     ).length
 
     const result = {

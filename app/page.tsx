@@ -8,7 +8,7 @@ import Waveform from "@/components/Waveform";
 import VoiceOrb from "@/components/VoiceOrb";
 import ChatPanel, { Message } from "@/components/ChatPanel";
 import QuickActions from "@/components/QuickActions";
-import VPSMetrics from "@/components/VPSMetrics";
+import CockpitDashboard from "@/components/CockpitDashboard";
 import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import useSpeechSynthesis from "@/hooks/useSpeechSynthesis";
 
@@ -210,6 +210,45 @@ export default function Home() {
     async (command: string) => {
       setChatOpen(true);
 
+      // Cockpit daily brief: fast deterministic dashboard answer
+      if (command === "Fais-moi le brief du jour") {
+        addMessage("user", command);
+        setIsTyping(true);
+        try {
+          const [weatherRes, statusRes, tasksRes] = await Promise.all([
+            fetch("/api/weather").then((r) => r.json()).catch(() => null),
+            fetch("/api/status").then((r) => r.json()).catch(() => null),
+            fetch("/api/notion-tasks").then((r) => r.json()).catch(() => null),
+          ]);
+
+          const taskCount = Array.isArray(tasksRes?.tasks) ? tasksRes.tasks.length : 0;
+          const urgentCount = Array.isArray(tasksRes?.tasks)
+            ? tasksRes.tasks.filter((task: { status?: string }) => (task.status || "").toLowerCase().includes("urgent")).length
+            : 0;
+          const weatherLine = weatherRes && !weatherRes.error
+            ? `🌤️ Solenzara : ${Math.round(weatherRes.temperature)}°C, ${weatherRes.description}. Vent ${Math.round(weatherRes.windSpeed)} km/h.`
+            : "🌤️ Météo : indisponible pour le moment.";
+          const infraLine = statusRes && !statusRes.error
+            ? `🖥️ Infra : ${statusRes.onlineVps}/${statusRes.totalVps} VPS actifs, ${statusRes.sitesCount} sites Hostinger.`
+            : "🖥️ Infra : statut indisponible.";
+          const tasksLine = urgentCount > 0
+            ? `📋 Tâches : ${taskCount} tâche${taskCount > 1 ? "s" : ""}, dont ${urgentCount} urgente${urgentCount > 1 ? "s" : ""}.`
+            : `📋 Tâches : ${taskCount} tâche${taskCount > 1 ? "s" : ""} Cédric, rien d'urgent détecté.`;
+
+          const response = `## Brief JARVIS\n\n${weatherLine}\n${tasksLine}\n${infraLine}\n\nPrêt pour la suite, Cédric.`;
+          const id = addMessage("assistant", response);
+          if (!muted) {
+            lastSpokenIdRef.current = id;
+            speak(`Brief JARVIS. ${weatherLine} ${tasksLine} ${infraLine}`);
+          }
+        } catch {
+          addMessage("assistant", "❌ Impossible de générer le brief JARVIS pour le moment.");
+        } finally {
+          setIsTyping(false);
+        }
+        return;
+      }
+
       // Special handling for Notion tasks
       if (command === "Mes tâches du jour") {
         addMessage("user", command);
@@ -272,7 +311,7 @@ export default function Home() {
               speak("Pas de tâche prévue aujourd'hui. Belle journée !");
             }
           }
-        } catch (err: any) {
+        } catch {
           addMessage("assistant", "❌ Impossible de récupérer les tâches Notion. Vérifie la connexion.");
         } finally {
           setIsTyping(false);
@@ -306,8 +345,8 @@ export default function Home() {
       {/* Background HUD */}
       <HUDCanvas />
 
-      {/* VPS Metrics Panel */}
-      <VPSMetrics />
+      {/* Cockpit Dashboard */}
+      <CockpitDashboard onAction={handleQuickAction} />
 
       {/* Top bar */}
       <motion.header

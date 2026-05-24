@@ -4,6 +4,22 @@ import { fetchHostinger } from "@/lib/hostinger";
 
 const KIMI_TIMEOUT_MS = 25_000;
 
+type ApiRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ApiRecord {
+  return value && typeof value === "object" ? (value as ApiRecord) : {};
+}
+
+function getString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function getList(data: unknown): ApiRecord[] {
+  if (Array.isArray(data)) return data.map(asRecord);
+  const dataRecord = asRecord(data);
+  return Array.isArray(dataRecord.data) ? dataRecord.data.map(asRecord) : [];
+}
+
 const WEATHER_CODES: Record<number, string> = {
   0: "ciel dégagé",
   1: "principalement dégagé",
@@ -65,12 +81,13 @@ async function getWeatherAnswer() {
 
 async function getVpsAnswer() {
   const data = await fetchHostinger("/vps/v1/virtual-machines");
-  const list = Array.isArray(data) ? data : data?.data ?? [];
+  const list = getList(data);
   if (!Array.isArray(list) || list.length === 0) return "Je n'ai trouvé aucun VPS Hostinger.";
-  const lines = list.slice(0, 8).map((vps: any) => {
-    const name = vps.hostname || vps.name || `VPS ${vps.id ?? ""}`.trim();
-    const ip = vps.ipv4?.[0]?.address || vps.ipv4_address || vps.ip || "IP inconnue";
-    const state = vps.state || vps.status || "statut inconnu";
+  const lines = list.slice(0, 8).map((vps) => {
+    const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
+    const name = getString(vps.hostname) || getString(vps.name) || `VPS ${getString(vps.id, "")}`.trim();
+    const ip = getString(ip4.address) || getString(vps.ipv4_address) || getString(vps.ip) || "IP inconnue";
+    const state = getString(vps.state) || getString(vps.status) || "statut inconnu";
     return `• ${name} — ${ip} — ${state}`;
   });
   return `Tu as ${list.length} VPS Hostinger :\n\n${lines.join("\n")}`;
@@ -78,9 +95,9 @@ async function getVpsAnswer() {
 
 async function getSitesAnswer() {
   const data = await fetchHostinger("/hosting/v1/websites");
-  const list = Array.isArray(data) ? data : data?.data ?? [];
+  const list = getList(data);
   if (!Array.isArray(list) || list.length === 0) return "Je n'ai trouvé aucun site Hostinger.";
-  const lines = list.slice(0, 10).map((site: any) => `• ${site.domain || site.name || site.website || "site sans nom"}`);
+  const lines = list.slice(0, 10).map((site) => `• ${getString(site.domain) || getString(site.name) || getString(site.website) || "site sans nom"}`);
   return `Tu as ${list.length} sites Hostinger. Les premiers :\n\n${lines.join("\n")}`;
 }
 
