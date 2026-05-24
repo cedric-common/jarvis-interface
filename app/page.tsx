@@ -7,7 +7,6 @@ import HUDCanvas from "@/components/HUDCanvas";
 import Waveform from "@/components/Waveform";
 import VoiceOrb from "@/components/VoiceOrb";
 import ChatPanel, { Message } from "@/components/ChatPanel";
-import QuickActions from "@/components/QuickActions";
 import CockpitDashboard from "@/components/CockpitDashboard";
 import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import useSpeechSynthesis from "@/hooks/useSpeechSynthesis";
@@ -413,7 +412,7 @@ export default function Home() {
       </motion.header>
 
       {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pb-24 sm:pb-0">
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pb-0">
         {/* Waveform */}
         <AnimatePresence>
           {waveformActive && (
@@ -471,9 +470,6 @@ export default function Home() {
         onClose={() => setChatOpen(false)}
         isTyping={isTyping}
       />
-
-      {/* Quick Actions */}
-      <QuickActions onAction={handleQuickAction} />
     </main>
   );
 }
