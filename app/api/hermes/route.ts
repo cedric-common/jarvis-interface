@@ -83,6 +83,10 @@ async function getVpsAnswer() {
   const data = await fetchHostinger("/vps/v1/virtual-machines");
   const list = getList(data);
   if (!Array.isArray(list) || list.length === 0) return "Je n'ai trouvé aucun VPS Hostinger.";
+  const inactive = list.filter((vps) => {
+    const state = getString(vps.state) || getString(vps.status);
+    return state && state !== "running" && state !== "online" && state !== "active";
+  });
   const lines = list.slice(0, 8).map((vps) => {
     const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
     const name = getString(vps.hostname) || getString(vps.name) || `VPS ${getString(vps.id, "")}`.trim();
@@ -90,7 +94,16 @@ async function getVpsAnswer() {
     const state = getString(vps.state) || getString(vps.status) || "statut inconnu";
     return `• ${name} — ${ip} — ${state}`;
   });
-  return `Tu as ${list.length} VPS Hostinger :\n\n${lines.join("\n")}`;
+  const warning = inactive.length
+    ? `\n\nÀ vérifier : ${inactive.length} VPS non actif. ${inactive.map((vps) => {
+        const name = getString(vps.hostname) || `VPS ${getString(vps.id, "")}`.trim();
+        const state = getString(vps.state) || getString(vps.status) || "statut inconnu";
+        const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
+        const ip = getString(ip4.address) || "aucune IPv4";
+        return `${name} est ${state} (${ip})`;
+      }).join(" ; ")}. Action conseillée : ne pas redémarrer automatiquement un VPS détruit ; vérifier d'abord s'il s'agit d'un ancien serveur n8n à supprimer de l'inventaire ou à recréer.`
+    : "";
+  return `Tu as ${list.length} VPS Hostinger :\n\n${lines.join("\n")}${warning}`;
 }
 
 async function getSitesAnswer() {

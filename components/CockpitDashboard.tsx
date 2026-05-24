@@ -32,6 +32,8 @@ type VpsData = {
   id: number;
   hostname: string;
   state: string;
+  ip?: string;
+  plan?: string;
   cpuPercent: number;
   ramPercent: number;
 };
@@ -97,6 +99,8 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
   );
 
   const urgentTasks = tasks.filter((task) => (task.status || "").toLowerCase().includes("urgent"));
+  const inactiveVps = vms.filter((vm) => vm.state !== "running");
+  const primaryInactiveVps = inactiveVps[0];
   const runningVps = vms.filter((vm) => vm.state === "running").length || status?.onlineVps || 0;
   const totalVps = vms.length || status?.totalVps || status?.vpsCount || 0;
   const infraOk = totalVps > 0 && runningVps === totalVps;
@@ -125,8 +129,12 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
       icon: Server,
       accent: infraOk ? "text-emerald-300" : "text-orange-300",
       body: `${runningVps}/${totalVps || "?"} VPS actifs`,
-      detail: `${status?.sitesCount ?? "—"} sites Hostinger · ${infraOk ? "stable" : "à vérifier"}`,
-      action: "État du serveur hermes",
+      detail: infraOk
+        ? `${status?.sitesCount ?? "—"} sites Hostinger · stable`
+        : `${primaryInactiveVps ? compactHostname(primaryInactiveVps.hostname) : "1 VPS"} ${primaryInactiveVps?.state ?? "à vérifier"}`,
+      action: primaryInactiveVps
+        ? `Diagnostique le VPS ${primaryInactiveVps.hostname}`
+        : "État du serveur hermes",
     },
   ];
 
@@ -195,15 +203,33 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
         {vms.length > 0 && (
           <div className="hidden sm:block px-4 pb-4">
             <div className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-white/35">
-                <ShieldCheck className="w-3 h-3 text-emerald-300" /> Santé VPS
+              <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-widest text-white/35">
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className={`w-3 h-3 ${infraOk ? "text-emerald-300" : "text-orange-300"}`} /> Santé VPS
+                </span>
+                {!infraOk && <span className="text-orange-300">{inactiveVps.length} à vérifier</span>}
               </div>
               {vms.slice(0, 4).map((vm) => (
                 <div key={vm.id} className="flex items-center justify-between gap-3 text-[11px] font-mono">
                   <span className="text-white/55 truncate">{compactHostname(vm.hostname)}</span>
-                  <span className="text-white/35">CPU {Math.round(vm.cpuPercent)}% · RAM {Math.round(vm.ramPercent)}%</span>
+                  {vm.state === "running" ? (
+                    <span className="text-white/35">CPU {Math.round(vm.cpuPercent)}% · RAM {Math.round(vm.ramPercent)}%</span>
+                  ) : (
+                    <button
+                      onClick={() => onAction(`Diagnostique le VPS ${vm.hostname}`)}
+                      className="rounded-full border border-orange-300/20 bg-orange-500/10 px-2 py-0.5 text-orange-200"
+                    >
+                      {vm.state}
+                    </button>
+                  )}
                 </div>
               ))}
+              {!infraOk && primaryInactiveVps && (
+                <div className="mt-2 rounded-xl border border-orange-300/15 bg-orange-500/10 p-2 text-[11px] text-orange-100/80">
+                  VPS non actif : <span className="font-mono text-orange-100">{compactHostname(primaryInactiveVps.hostname)}</span>
+                  {primaryInactiveVps.ip && primaryInactiveVps.ip !== "N/A" ? ` · ${primaryInactiveVps.ip}` : " · aucune IPv4"}
+                </div>
+              )}
             </div>
           </div>
         )}
