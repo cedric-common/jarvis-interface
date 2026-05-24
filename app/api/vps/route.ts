@@ -6,7 +6,10 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const data = await fetchHostinger('/vps/v1/virtual-machines')
-    return NextResponse.json(data, { headers: getCorsHeaders() })
+    const filteredData = Array.isArray(data)
+      ? data.filter((vps: { state?: string; status?: string }) => (vps.state || vps.status) !== 'destroyed')
+      : data
+    return NextResponse.json(filteredData, { headers: getCorsHeaders() })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(

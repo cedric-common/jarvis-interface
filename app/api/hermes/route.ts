@@ -81,8 +81,11 @@ async function getWeatherAnswer() {
 
 async function getVpsAnswer() {
   const data = await fetchHostinger("/vps/v1/virtual-machines");
-  const list = getList(data);
-  if (!Array.isArray(list) || list.length === 0) return "Je n'ai trouvé aucun VPS Hostinger.";
+  const list = getList(data).filter((vps) => {
+    const state = getString(vps.state) || getString(vps.status);
+    return state !== "destroyed";
+  });
+  if (!Array.isArray(list) || list.length === 0) return "Je n'ai trouvé aucun VPS Hostinger actif dans l'inventaire JARVIS.";
   const inactive = list.filter((vps) => {
     const state = getString(vps.state) || getString(vps.status);
     return state && state !== "running" && state !== "online" && state !== "active";
@@ -101,7 +104,7 @@ async function getVpsAnswer() {
         const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
         const ip = getString(ip4.address) || "aucune IPv4";
         return `${name} est ${state} (${ip})`;
-      }).join(" ; ")}. Action conseillée : ne pas redémarrer automatiquement un VPS détruit ; vérifier d'abord s'il s'agit d'un ancien serveur n8n à supprimer de l'inventaire ou à recréer.`
+      }).join(" ; ")}. Action conseillée : vérifier avant toute action automatique.`
     : "";
   return `Tu as ${list.length} VPS Hostinger :\n\n${lines.join("\n")}${warning}`;
 }

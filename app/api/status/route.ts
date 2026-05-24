@@ -32,7 +32,8 @@ export async function GET() {
     if (vpsData.status === 'fulfilled') {
       const data = vpsData.value
       const dataRecord = data as { data?: Array<{ status?: string; state?: string }> }
-      vpsList = Array.isArray(data) ? data : dataRecord.data || []
+      const rawVpsList = Array.isArray(data) ? data : dataRecord.data || []
+      vpsList = rawVpsList.filter((vps) => (vps.state || vps.status) !== 'destroyed')
     }
 
     if (sitesData.status === 'fulfilled') {

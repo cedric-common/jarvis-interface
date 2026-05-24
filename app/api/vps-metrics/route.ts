@@ -29,7 +29,7 @@ export async function GET() {
     // 1. List VMs
     const vmsRes = await fetch(`${BASE_URL}/vps/v1/virtual-machines`, { headers });
     if (!vmsRes.ok) throw new Error(`VMs fetch failed: ${vmsRes.status}`);
-    const vms = await vmsRes.json();
+    const vms = (await vmsRes.json()).filter((vm: { state?: string; status?: string }) => (vm.state || vm.status) !== "destroyed");
 
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
