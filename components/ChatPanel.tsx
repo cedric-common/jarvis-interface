@@ -51,7 +51,7 @@ export default function ChatPanel({
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: 50, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed right-3 sm:right-4 top-16 sm:top-20 bottom-24 sm:bottom-4 w-[calc(100vw-1.5rem)] sm:w-[380px] sm:max-w-[calc(100vw-2rem)] z-20"
+          className="fixed right-3 sm:right-4 top-16 sm:top-20 bottom-[9.25rem] sm:bottom-4 w-[calc(100vw-1.5rem)] sm:w-[380px] sm:max-w-[calc(100vw-2rem)] z-20"
         >
           <div className="glass-panel-strong rounded-2xl sm:rounded-3xl h-full flex flex-col overflow-hidden border-glow">
             {/* Header */}

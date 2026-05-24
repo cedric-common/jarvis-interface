@@ -40,6 +40,7 @@ export default function VoiceOrb({ isListening, onToggle }: VoiceOrbProps) {
       {/* Main orb */}
       <motion.button
         onClick={onToggle}
+        aria-label={isListening ? "Arrêter l'écoute" : "Appuyer pour parler"}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 ${

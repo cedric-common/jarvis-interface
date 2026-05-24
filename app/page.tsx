@@ -13,7 +13,7 @@ import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import useSpeechSynthesis from "@/hooks/useSpeechSynthesis";
 
 export default function Home() {
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [waveformActive, setWaveformActive] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -37,6 +37,12 @@ export default function Home() {
   const lastSpokenIdRef = useRef<string | null>(null);
   const streamingTextRef = useRef<string>("");
   const conversationModeRef = useRef(conversationMode);
+
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    const frame = window.requestAnimationFrame(() => setChatOpen(!isMobile));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     conversationModeRef.current = conversationMode;
@@ -327,6 +333,7 @@ export default function Home() {
                 : "bg-white/5 border border-white/10 text-white/40 hover:text-white/70"
             }`}
             title={conversationMode ? "Mode conversation actif" : "Activer mode conversation"}
+            aria-label={conversationMode ? "Désactiver le mode conversation" : "Activer le mode conversation"}
           >
             {conversationMode ? <Ear className="w-4 h-4" /> : <EarOff className="w-4 h-4" />}
           </motion.button>
@@ -341,6 +348,7 @@ export default function Home() {
                 : "bg-cyan-glow/20 border border-cyan-glow/40 text-cyan-glow"
             }`}
             title={muted ? "Activer la voix" : "Couper la voix"}
+            aria-label={muted ? "Activer la voix" : "Couper la voix"}
           >
             {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </motion.button>
@@ -354,6 +362,7 @@ export default function Home() {
                 ? "bg-cyan-glow/20 border border-cyan-glow/40 text-cyan-glow"
                 : "bg-white/5 border border-white/10 text-white/40 hover:text-white/70"
             }`}
+            aria-label={chatOpen ? "Fermer la conversation" : "Ouvrir la conversation"}
           >
             {chatOpen ? <X className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
           </motion.button>

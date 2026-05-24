@@ -66,9 +66,9 @@ export default function QuickActions({ onAction }: QuickActionsProps) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5, type: "spring", stiffness: 100 }}
-      className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-3 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 w-[calc(100vw-1.5rem)] max-w-sm sm:w-auto sm:max-w-none pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="glass-panel rounded-2xl px-4 py-3 flex items-center gap-2 border-glow">
+      <div className="glass-panel rounded-2xl px-3 py-3 grid grid-cols-3 sm:flex sm:items-center gap-2 border-glow">
         {actions.map((action, i) => (
           <motion.button
             key={action.id}
@@ -78,7 +78,8 @@ export default function QuickActions({ onAction }: QuickActionsProps) {
             whileHover={{ y: -2, scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => onAction(action.command)}
-            className={`flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-b ${action.color} border transition-all hover:brightness-125`}
+            className={`flex flex-col items-center justify-center gap-1.5 min-h-14 px-2 sm:px-3 py-2 rounded-xl bg-gradient-to-b ${action.color} border transition-all hover:brightness-125`}
+            aria-label={action.command}
           >
             {action.icon}
             <span className="text-[10px] font-mono uppercase tracking-wider">{action.label}</span>
