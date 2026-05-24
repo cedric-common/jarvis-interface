@@ -78,7 +78,7 @@ export default function Home() {
 
     try {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 35_000);
+      const timeout = window.setTimeout(() => controller.abort(), 75_000);
       const res = await fetch("/api/hermes", {
         method: "POST",
         signal: controller.signal,
