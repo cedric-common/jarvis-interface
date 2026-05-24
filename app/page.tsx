@@ -78,11 +78,15 @@ export default function Home() {
     }));
 
     try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 35_000);
       const res = await fetch("/api/hermes", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history }),
       });
+      window.clearTimeout(timeout);
 
       if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status}`);
