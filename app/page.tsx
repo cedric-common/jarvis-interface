@@ -209,8 +209,18 @@ export default function Home() {
     async (command: string) => {
       setChatOpen(true);
 
-      // Cockpit daily brief: fast deterministic dashboard answer
-      if (command === "Fais-moi le brief du jour") {
+      const isDailySummary = command === "Fais-moi le brief du jour" || command === "Résume ma journée";
+      const isTaskList = command === "Mes tâches du jour";
+
+      function taskLabel(task: { bucket?: string; dueDate?: string | null; status?: string; priority?: string }) {
+        if (task.bucket === "overdue") return "🔴 En retard";
+        if (task.bucket === "today") return "🔵 Aujourd'hui";
+        if ((`${task.status || ""} ${task.priority || ""}`).toLowerCase().includes("urgent")) return "🟠 Urgent";
+        if (task.dueDate) return `🗓️ ${new Date(`${task.dueDate}T12:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}`;
+        return "⏳ À traiter";
+      }
+
+      if (isDailySummary || isTaskList) {
         addMessage("user", command);
         setIsTyping(true);
         try {
@@ -220,73 +230,67 @@ export default function Home() {
             fetch("/api/notion-tasks").then((r) => r.json()).catch(() => null),
           ]);
 
-          const taskCount = Array.isArray(tasksRes?.tasks) ? tasksRes.tasks.length : 0;
-          const urgentCount = Array.isArray(tasksRes?.tasks)
-            ? tasksRes.tasks.filter((task: { status?: string }) => (task.status || "").toLowerCase().includes("urgent")).length
-            : 0;
+          if (tasksRes?.error) {
+            addMessage("assistant", `❌ Erreur Notion : ${tasksRes.error}`);
+            return;
+          }
+
+          const tasks = Array.isArray(tasksRes?.tasks) ? tasksRes.tasks : [];
+          const summary = tasksRes?.summary || {
+            total: tasks.length,
+            overdue: tasks.filter((task: { bucket?: string }) => task.bucket === "overdue").length,
+            today: tasks.filter((task: { bucket?: string }) => task.bucket === "today").length,
+            upcoming: tasks.filter((task: { bucket?: string }) => task.bucket === "upcoming").length,
+            urgent: tasks.filter((task: { status?: string; priority?: string }) => (`${task.status || ""} ${task.priority || ""}`).toLowerCase().includes("urgent")).length,
+          };
+
           const weatherLine = weatherRes && !weatherRes.error
             ? `🌤️ Solenzara : ${Math.round(weatherRes.temperature)}°C, ${weatherRes.description}. Vent ${Math.round(weatherRes.windSpeed)} km/h.`
             : "🌤️ Météo : indisponible pour le moment.";
           const infraLine = statusRes && !statusRes.error
             ? `🖥️ Infra : ${statusRes.onlineVps}/${statusRes.totalVps} VPS actifs, ${statusRes.sitesCount} sites Hostinger.`
             : "🖥️ Infra : statut indisponible.";
-          const tasksLine = urgentCount > 0
-            ? `📋 Tâches : ${taskCount} tâche${taskCount > 1 ? "s" : ""}, dont ${urgentCount} urgente${urgentCount > 1 ? "s" : ""}.`
-            : `📋 Tâches : ${taskCount} tâche${taskCount > 1 ? "s" : ""} Cédric, rien d'urgent détecté.`;
 
-          const response = `## Brief JARVIS\n\n${weatherLine}\n${tasksLine}\n${infraLine}\n\nPrêt pour la suite, Cédric.`;
-          const id = addMessage("assistant", response);
-          if (!muted) {
-            lastSpokenIdRef.current = id;
-            speak(`Brief JARVIS. ${weatherLine} ${tasksLine} ${infraLine}`);
+          if (isDailySummary) {
+            const topTasks = tasks.slice(0, 4);
+            const taskLines = topTasks.length
+              ? topTasks.map((task: { title: string; client?: string; bucket?: string; dueDate?: string | null; status?: string; priority?: string }) => `- ${taskLabel(task)} — ${task.title}${task.client ? ` (${task.client})` : ""}`).join("\n")
+              : "- Aucune tâche Cédric urgente ou planifiée détectée dans Notion.";
+            const attention = summary.overdue > 0
+              ? `⚠️ Priorité : ${summary.overdue} tâche${summary.overdue > 1 ? "s" : ""} en retard.`
+              : summary.today > 0
+              ? `✅ Focus : ${summary.today} tâche${summary.today > 1 ? "s" : ""} prévue${summary.today > 1 ? "s" : ""} aujourd'hui.`
+              : "✅ Aucun retard détecté.";
+
+            const response = `## Résumé de ta journée\n\n${weatherLine}\n${attention}\n📋 Notion : ${summary.total} tâche${summary.total > 1 ? "s" : ""} Cédric — ${summary.today} aujourd'hui, ${summary.upcoming} à venir, ${summary.urgent} urgente${summary.urgent > 1 ? "s" : ""}.\n\n${taskLines}\n\n${infraLine}`;
+            const id = addMessage("assistant", response);
+            if (!muted) {
+              lastSpokenIdRef.current = id;
+              speak(`Résumé de ta journée. ${attention} ${summary.total} tâches Cédric dans Notion. ${infraLine}`);
+            }
+            return;
           }
-        } catch {
-          addMessage("assistant", "❌ Impossible de générer le brief JARVIS pour le moment.");
-        } finally {
-          setIsTyping(false);
-        }
-        return;
-      }
 
-      // Special handling for Notion tasks
-      if (command === "Mes tâches du jour") {
-        addMessage("user", command);
-        setIsTyping(true);
-        try {
-          const res = await fetch("/api/notion-tasks");
-          const data = await res.json();
-
-          if (data.error) {
-            addMessage("assistant", `❌ Erreur Notion : ${data.error}`);
-          } else if (data.tasks && data.tasks.length > 0) {
+          if (tasks.length > 0) {
             const today = new Date().toLocaleDateString("fr-FR", {
               weekday: "long",
               day: "numeric",
               month: "long",
             });
-            let response = `📋 **Tâches du ${today}**\n\n`;
+            let response = `📋 **Tâches Cédric — ${today}**\n\n`;
 
-            // Group by client
-            const byClient: Record<string, typeof data.tasks> = {};
-            for (const task of data.tasks) {
-              const c = task.client || "Général";
-              if (!byClient[c]) byClient[c] = [];
-              byClient[c].push(task);
-            }
+            const sections: Array<[string, typeof tasks]> = [
+              ["🔴 En retard", tasks.filter((task: { bucket?: string }) => task.bucket === "overdue")],
+              ["🔵 Aujourd'hui", tasks.filter((task: { bucket?: string }) => task.bucket === "today")],
+              ["🗓️ Prochaines échéances", tasks.filter((task: { bucket?: string }) => task.bucket === "upcoming")],
+            ];
 
-            for (const [client, tasks] of Object.entries(byClient)) {
-              response += `🏢 **${client}**\n`;
-              for (const task of tasks) {
-                const statusEmoji = task.status
-                  ? task.status.toLowerCase().includes("en cours")
-                    ? "🔵"
-                    : task.status.toLowerCase().includes("urgent")
-                    ? "🔴"
-                    : "⏳"
-                  : "⏳";
-                response += `  ${statusEmoji} ${task.title}${
-                  task.status ? ` (*${task.status}*)` : ""
-                }\n`;
+            for (const [label, sectionTasks] of sections) {
+              if (!sectionTasks.length) continue;
+              response += `**${label}**\n`;
+              for (const task of sectionTasks.slice(0, 8)) {
+                const meta = [task.client, task.priority || task.status, task.dueDate].filter(Boolean).join(" · ");
+                response += `- ${task.title}${meta ? ` — ${meta}` : ""}\n`;
               }
               response += "\n";
             }
@@ -294,20 +298,16 @@ export default function Home() {
             const id = addMessage("assistant", response.trim());
             if (!muted) {
               lastSpokenIdRef.current = id;
-              speak(
-                `Tu as ${data.tasks.length} tâche${
-                  data.tasks.length > 1 ? "s" : ""
-                } aujourd'hui. Consulte l'écran pour les détails.`
-              );
+              speak(`Tu as ${tasks.length} tâche${tasks.length > 1 ? "s" : ""} Cédric dans Notion, dont ${summary.overdue} en retard et ${summary.today} aujourd'hui.`);
             }
           } else {
             const id = addMessage(
               "assistant",
-              "✨ **Pas de tâche prévue aujourd'hui !**\n\nProfite de cette journée pour avancer sereinement. 💪"
+              "✨ **Aucune tâche Cédric urgente ou planifiée dans Notion.**\n\nJe ne montre pas les tâches des collaborateurs par défaut."
             );
             if (!muted) {
               lastSpokenIdRef.current = id;
-              speak("Pas de tâche prévue aujourd'hui. Belle journée !");
+              speak("Aucune tâche Cédric urgente ou planifiée dans Notion.");
             }
           }
         } catch {

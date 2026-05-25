@@ -23,9 +23,13 @@ type StatusData = {
 };
 
 type TaskData = {
+  id?: string;
   title: string;
   client?: string;
   status?: string;
+  priority?: string;
+  dueDate?: string | null;
+  bucket?: "overdue" | "today" | "upcoming" | "unscheduled";
 };
 
 type VpsData = {
@@ -48,6 +52,19 @@ function formatTime(date: Date) {
 
 function compactHostname(hostname: string) {
   return hostname.replace(".hstgr.cloud", "").replace("hermes.common.team", "hermes");
+}
+
+function formatTaskDate(date?: string | null) {
+  if (!date) return "Sans date";
+  return new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+function taskTone(task: TaskData) {
+  const combined = `${task.status || ""} ${task.priority || ""}`.toLowerCase();
+  if (task.bucket === "overdue") return "text-rose-200 border-rose-300/20 bg-rose-500/10";
+  if (combined.includes("urgent") || combined.includes("haute")) return "text-orange-200 border-orange-300/20 bg-orange-500/10";
+  if (task.bucket === "today") return "text-cyan-200 border-cyan-300/20 bg-cyan-500/10";
+  return "text-white/55 border-white/10 bg-white/[0.03]";
 }
 
 export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
@@ -98,7 +115,16 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
     [now]
   );
 
-  const urgentTasks = tasks.filter((task) => (task.status || "").toLowerCase().includes("urgent"));
+  const overdueTasks = tasks.filter((task) => task.bucket === "overdue");
+  const todayTasks = tasks.filter((task) => task.bucket === "today");
+  const upcomingTasks = tasks.filter((task) => task.bucket === "upcoming");
+  const urgentTasks = tasks.filter((task) => {
+    const combined = `${task.status || ""} ${task.priority || ""}`.toLowerCase();
+    return combined.includes("urgent") || combined.includes("haute");
+  });
+  const priorityTasks = [...overdueTasks, ...todayTasks, ...urgentTasks, ...upcomingTasks]
+    .filter((task, index, list) => list.findIndex((candidate) => candidate.id === task.id && candidate.title === task.title) === index)
+    .slice(0, 4);
   const inactiveVps = vms.filter((vm) => vm.state !== "running");
   const primaryInactiveVps = inactiveVps[0];
   const runningVps = vms.filter((vm) => vm.state === "running").length || status?.onlineVps || 0;
@@ -111,10 +137,10 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
       icon: CalendarClock,
       accent: "text-cyan-300",
       body: loading ? "Synchronisation…" : `${todayLabel} · ${formatTime(now)}`,
-      detail: weather
-        ? `${Math.round(weather.temperature ?? 0)}°C à ${weather.location ?? "Solenzara"} · ${weather.description ?? "météo OK"}`
-        : "Météo en attente",
-      action: "Fais-moi le brief du jour",
+      detail: loading
+        ? "Météo et tâches en attente"
+        : `${weather ? `${Math.round(weather.temperature ?? 0)}°C · ` : ""}${overdueTasks.length} retard · ${todayTasks.length} aujourd'hui · ${upcomingTasks.length} à venir`,
+      action: "Résume ma journée",
     },
     {
       title: "Tâches",
@@ -195,9 +221,40 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
           <button onClick={() => onAction("Quel temps fait-il à Solenzara ?")} className="rounded-2xl bg-amber-500/10 border border-amber-400/20 px-3 py-2 text-xs font-mono text-amber-200 flex items-center justify-center gap-2">
             <CloudSun className="w-3.5 h-3.5" /> Météo
           </button>
-          <button onClick={() => onAction("Envoie-moi le rapport sur Telegram")} className="rounded-2xl bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 text-xs font-mono text-emerald-200 flex items-center justify-center gap-2">
-            <Send className="w-3.5 h-3.5" /> Rapport
+          <button onClick={() => onAction("Résume ma journée")} className="rounded-2xl bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 text-xs font-mono text-emerald-200 flex items-center justify-center gap-2">
+            <Send className="w-3.5 h-3.5" /> Journée
           </button>
+        </div>
+
+        <div className="px-4 pb-4">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-widest text-white/35">
+              <span>Plan aujourd'hui</span>
+              <span className={overdueTasks.length ? "text-rose-300" : "text-emerald-300"}>
+                {overdueTasks.length ? `${overdueTasks.length} retard` : "à jour"}
+              </span>
+            </div>
+            {priorityTasks.length > 0 ? (
+              priorityTasks.map((task) => (
+                <button
+                  key={`${task.id || task.title}-${task.dueDate || "none"}`}
+                  onClick={() => onAction(`Ouvre ou résume la tâche Notion : ${task.title}`)}
+                  className={`w-full rounded-xl border px-2.5 py-2 text-left text-[11px] transition-colors hover:bg-white/[0.07] ${taskTone(task)}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium">{task.title}</span>
+                    <span className="shrink-0 font-mono opacity-70">{formatTaskDate(task.dueDate)}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] opacity-65">
+                    <span className="truncate">{task.client || "Général"}</span>
+                    <span className="shrink-0">{task.priority || task.status || "à traiter"}</span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <p className="text-xs text-white/45">Aucune tâche Cédric urgente ou planifiée dans Notion.</p>
+            )}
+          </div>
         </div>
 
         {vms.length > 0 && (
