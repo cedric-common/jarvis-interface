@@ -16,6 +16,25 @@ export default function LoginForm() {
 
   const supabase = useMemo(() => createClient(), []);
 
+  if (!supabase) {
+    return (
+      <main className="relative w-screen h-screen overflow-hidden bg-black flex items-center justify-center">
+        <div className="relative z-10 w-full max-w-md px-6 text-center">
+          <div className="w-14 h-14 rounded-xl bg-cyan-glow/10 flex items-center justify-center border border-cyan-glow/30 mb-4 mx-auto">
+            <span className="text-xl font-bold text-cyan-glow font-mono">H</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight mb-2">JARVIS HQ</h1>
+          <p className="text-sm text-white/50 mb-6">
+            L&apos;authentification n&apos;est pas encore configurée.
+          </p>
+          <p className="text-xs text-white/30 font-mono">
+            Ajoutez les variables d&apos;environnement Supabase pour activer la connexion.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

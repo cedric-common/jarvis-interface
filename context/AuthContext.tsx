@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
 
     const fetchUser = async () => {
       const {
@@ -47,7 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((
+      _event: string,
+      session: { user: User | null } | null
+    ) => {
       const nextUser = session?.user ?? null;
       setUser(nextUser);
       if (nextUser) {
@@ -56,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select("id, email, full_name, role, notion_name, avatar_url, created_at, updated_at")
           .eq("id", nextUser.id)
           .single()
-          .then(({ data }) => setProfile(data));
+          .then(({ data }: { data: Profile | null }) => setProfile(data));
       } else {
         setProfile(null);
       }
