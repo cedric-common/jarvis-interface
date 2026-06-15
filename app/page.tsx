@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Volume2, VolumeX, Ear, EarOff } from "lucide-react";
+import { MessageSquare, X, Volume2, VolumeX, Ear, EarOff, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { createClient } from "@/lib/supabase";
 import HUDCanvas from "@/components/HUDCanvas";
 import Waveform from "@/components/Waveform";
 import VoiceOrb from "@/components/VoiceOrb";
@@ -12,6 +14,7 @@ import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import useSpeechSynthesis from "@/hooks/useSpeechSynthesis";
 
 export default function Home() {
+  const { user, profile, isLoading, isAdmin } = useAuth();
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [waveformActive, setWaveformActive] = useState(false);
@@ -255,18 +258,18 @@ export default function Home() {
             const topTasks = tasks.slice(0, 4);
             const taskLines = topTasks.length
               ? topTasks.map((task: { title: string; client?: string; bucket?: string; dueDate?: string | null; status?: string; priority?: string }) => `- ${taskLabel(task)} — ${task.title}${task.client ? ` (${task.client})` : ""}`).join("\n")
-              : "- Aucune tâche Cédric urgente ou planifiée détectée dans Notion.";
+              : "- Aucune tâche urgente ou planifiée détectée dans Notion.";
             const attention = summary.overdue > 0
               ? `⚠️ Priorité : ${summary.overdue} tâche${summary.overdue > 1 ? "s" : ""} en retard.`
               : summary.today > 0
               ? `✅ Focus : ${summary.today} tâche${summary.today > 1 ? "s" : ""} prévue${summary.today > 1 ? "s" : ""} aujourd'hui.`
               : "✅ Aucun retard détecté.";
 
-            const response = `## Résumé de ta journée\n\n${weatherLine}\n${attention}\n📋 Notion : ${summary.total} tâche${summary.total > 1 ? "s" : ""} Cédric — ${summary.today} aujourd'hui, ${summary.upcoming} à venir, ${summary.urgent} urgente${summary.urgent > 1 ? "s" : ""}.\n\n${taskLines}\n\n${infraLine}`;
+            const response = `## Résumé de ta journée\n\n${weatherLine}\n${attention}\n📋 Notion : ${summary.total} tâche${summary.total > 1 ? "s" : ""} — ${summary.today} aujourd'hui, ${summary.upcoming} à venir, ${summary.urgent} urgente${summary.urgent > 1 ? "s" : ""}.\n\n${taskLines}\n\n${infraLine}`;
             const id = addMessage("assistant", response);
             if (!muted) {
               lastSpokenIdRef.current = id;
-              speak(`Résumé de ta journée. ${attention} ${summary.total} tâches Cédric dans Notion. ${infraLine}`);
+              speak(`Résumé de ta journée. ${attention} ${summary.total} tâches dans Notion. ${infraLine}`);
             }
             return;
           }
@@ -277,7 +280,7 @@ export default function Home() {
               day: "numeric",
               month: "long",
             });
-            let response = `📋 **Tâches Cédric — ${today}**\n\n`;
+            let response = `📋 **Tâches — ${today}**\n\n`;
 
             const sections: Array<[string, typeof tasks]> = [
               ["🔴 En retard", tasks.filter((task: { bucket?: string }) => task.bucket === "overdue")],
@@ -298,16 +301,16 @@ export default function Home() {
             const id = addMessage("assistant", response.trim());
             if (!muted) {
               lastSpokenIdRef.current = id;
-              speak(`Tu as ${tasks.length} tâche${tasks.length > 1 ? "s" : ""} Cédric dans Notion, dont ${summary.overdue} en retard et ${summary.today} aujourd'hui.`);
+              speak(`Tu as ${tasks.length} tâche${tasks.length > 1 ? "s" : ""} dans Notion, dont ${summary.overdue} en retard et ${summary.today} aujourd'hui.`);
             }
           } else {
             const id = addMessage(
               "assistant",
-              "✨ **Aucune tâche Cédric urgente ou planifiée dans Notion.**\n\nJe ne montre pas les tâches des collaborateurs par défaut."
+              "✨ **Aucune tâche urgente ou planifiée dans Notion.**\n\nJe ne montre pas les tâches des collaborateurs par défaut."
             );
             if (!muted) {
               lastSpokenIdRef.current = id;
-              speak("Aucune tâche Cédric urgente ou planifiée dans Notion.");
+              speak("Aucune tâche urgente ou planifiée dans Notion.");
             }
           }
         } catch {
@@ -345,7 +348,7 @@ export default function Home() {
       <HUDCanvas />
 
       {/* Cockpit Dashboard */}
-      <CockpitDashboard onAction={handleQuickAction} />
+      <CockpitDashboard onAction={handleQuickAction} profile={profile ?? undefined} />
 
       {/* Top bar */}
       <motion.header
@@ -359,11 +362,31 @@ export default function Home() {
           </div>
           <div>
             <h1 className="text-sm font-semibold text-white tracking-tight">JARVIS</h1>
-            <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Hermes Interface</p>
+            <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">
+              {profile?.full_name ? `Bonjour ${profile.full_name.split(" ")[0]}` : "Hermes Interface"}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Logout */}
+          {user && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={async () => {
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.href = "/login";
+              }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30 transition-all"
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </motion.button>
+          )}
+
           {/* Conversation Mode Toggle */}
           <motion.button
             whileHover={{ scale: 1.05 }}

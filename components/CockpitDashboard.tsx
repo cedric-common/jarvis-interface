@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, CalendarClock, CloudSun, ListTodo, RadioTower, Server, Send, ShieldCheck, Zap } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, ListTodo, LogOut, RadioTower, Server, Send, ShieldCheck, Zap } from "lucide-react";
+import { Profile } from "@/types/profile";
 
 type WeatherData = {
   location?: string;
@@ -44,6 +45,8 @@ type VpsData = {
 
 interface CockpitDashboardProps {
   onAction: (command: string) => void;
+  profile?: Profile;
+  onLogout?: () => void;
 }
 
 function formatTime(date: Date) {
@@ -67,7 +70,12 @@ function taskTone(task: TaskData) {
   return "text-white/55 border-white/10 bg-white/[0.03]";
 }
 
-export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
+function firstName(fullName?: string | null) {
+  if (!fullName) return "";
+  return fullName.split(" ")[0];
+}
+
+export default function CockpitDashboard({ onAction, profile, onLogout }: CockpitDashboardProps) {
   const [now, setNow] = useState(new Date());
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
@@ -146,7 +154,7 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
       title: "Tâches",
       icon: ListTodo,
       accent: urgentTasks.length ? "text-rose-300" : "text-amber-300",
-      body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""} Cédric`,
+      body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""}`,
       detail: urgentTasks.length ? `${urgentTasks.length} urgente${urgentTasks.length > 1 ? "s" : ""}` : tasks[0]?.title ?? "Rien d'urgent détecté",
       action: "Mes tâches du jour",
     },
@@ -176,11 +184,24 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-cyan-300/70">Cockpit v1</p>
-            <h2 className="text-lg font-semibold text-white">Tableau de bord</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {profile?.full_name ? `Bonjour ${firstName(profile.full_name)}` : "Tableau de bord"}
+            </h2>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-mono text-emerald-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
-            LIVE
+          <div className="flex items-center gap-2">
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1.5 text-[10px] font-mono text-white/60 flex items-center gap-1 transition-colors"
+                title="Se déconnecter"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-[10px] font-mono text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+              LIVE
+            </div>
           </div>
         </div>
 
@@ -252,7 +273,11 @@ export default function CockpitDashboard({ onAction }: CockpitDashboardProps) {
                 </button>
               ))
             ) : (
-              <p className="text-xs text-white/45">Aucune tâche Cédric urgente ou planifiée dans Notion.</p>
+              <p className="text-xs text-white/45">
+                {profile?.full_name
+                  ? `Aucune tâche urgente ou planifiée pour ${firstName(profile.full_name)} dans Notion.`
+                  : "Aucune tâche urgente ou planifiée dans Notion."}
+              </p>
             )}
           </div>
         </div>

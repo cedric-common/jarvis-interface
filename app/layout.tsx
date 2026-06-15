@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "JARVIS — Hermes Interface",
@@ -37,7 +38,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="JARVIS" />
       </head>
       <body className="antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <PWARegister />
       </body>
     </html>

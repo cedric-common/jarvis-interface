@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const NOTION_VERSION = "2022-06-28";
 const PARIS_TIME_ZONE = "Europe/Paris";
-const CEDRIC_MATCHERS = ["cédric", "cedric", "cédric tiberi", "cedric tiberi"];
 
 type Bucket = "overdue" | "today" | "upcoming" | "unscheduled";
 
@@ -40,6 +41,12 @@ interface NotionTask {
   bucket: Bucket;
   source: string;
   url?: string;
+}
+
+interface Profile {
+  notion_name?: string | null;
+  role?: string | null;
+  full_name?: string | null;
 }
 
 const databases: Array<{
@@ -114,13 +121,16 @@ function peopleFromProps(props: Record<string, NotionProperty>, names: string[])
   return names.flatMap((name) => props[name]?.people ?? []);
 }
 
-function isCedricTask(props: Record<string, NotionProperty>, assigneeProps: string[]) {
+function isUserTask(props: Record<string, NotionProperty>, assigneeProps: string[], notionName: string) {
   const people = peopleFromProps(props, assigneeProps);
   if (!people.length) return false;
 
+  const target = notionName.toLowerCase().trim();
+  if (!target) return false;
+
   return people.some((person) => {
     const name = (person.name || "").toLowerCase();
-    return CEDRIC_MATCHERS.some((matcher) => name.includes(matcher));
+    return name.includes(target);
   });
 }
 
@@ -226,9 +236,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Notion API key not configured" }, { status: 500 });
   }
 
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("notion_name, role, full_name")
+    .eq("id", user.id)
+    .single<Profile>();
+
   const { searchParams } = new URL(req.url);
   const days = Math.min(Math.max(Number(searchParams.get("days") || 7), 1), 30);
   const includeUnscheduled = searchParams.get("includeUnscheduled") === "1";
+  const viewAll = searchParams.get("view") === "all";
+  const isAdmin = profile?.role === "admin";
+  const notionName = profile?.notion_name || profile?.full_name || user.email || "";
+
   const today = parisDateString();
   const startDate = addDays(today, -30);
   const endDate = addDays(today, days);
@@ -247,7 +279,9 @@ export async function GET(req: NextRequest) {
 
       for (const page of pages) {
         const props = page.properties || {};
-        if (!isCedricTask(props, db.assigneeProps)) continue;
+        if (!viewAll || !isAdmin) {
+          if (!isUserTask(props, db.assigneeProps, notionName)) continue;
+        }
         if (isArchived(props, db.archiveProps)) continue;
         if (isDone(props, db.doneProps)) continue;
 

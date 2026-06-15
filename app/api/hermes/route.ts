@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { fetchHostinger } from "@/lib/hostinger";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 const KIMI_TIMEOUT_MS = 25_000;
 const HERMES_TIMEOUT_MS = 60_000;
@@ -207,7 +209,7 @@ function normalizeHistory(history: unknown) {
     : [];
 }
 
-async function callHermes(message: string, history: unknown) {
+async function callHermes(message: string, history: unknown, systemPrompt: string) {
   const baseUrl = process.env.HERMES_API_URL?.replace(/\/$/, "");
   const apiKey = process.env.HERMES_API_KEY;
   if (!baseUrl || !apiKey) return null;
@@ -228,7 +230,7 @@ async function callHermes(message: string, history: unknown) {
         model: process.env.HERMES_MODEL || "hermes-agent",
         stream: true,
         messages: [
-          { role: "system", content: HERMES_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...normalizeHistory(history),
           { role: "user", content: message },
         ],
@@ -249,7 +251,7 @@ async function callHermes(message: string, history: unknown) {
   }
 }
 
-async function callKimi(message: string, history: unknown) {
+async function callKimi(message: string, history: unknown, systemPrompt: string) {
   const apiKey = process.env.KIMI_API_KEY;
   if (!apiKey) return null;
 
@@ -267,7 +269,7 @@ async function callKimi(message: string, history: unknown) {
         model: "kimi-k2.6",
         max_tokens: 2048,
         messages: [
-          { role: "system", content: KIMI_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...normalizeHistory(history),
           { role: "user", content: message },
         ],
@@ -286,6 +288,31 @@ async function callKimi(message: string, history: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    let userSystemPrompt: string | null = null;
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, role")
+        .eq("id", user.id)
+        .single<{ full_name?: string | null; role?: string | null }>();
+
+      if (profile?.full_name) {
+        userSystemPrompt = `Tu réponds depuis l'interface vocale JARVIS de ${profile.full_name}. ${profile.full_name} est ${profile.role || "collaborateur"} chez Comm'On. Réponds en français, concis et opérationnel. Utilise tes outils Hermes si nécessaire.`;
+      }
+    }
+
+    const hermesPrompt = userSystemPrompt || HERMES_SYSTEM_PROMPT;
+    const kimiPrompt = userSystemPrompt || KIMI_SYSTEM_PROMPT;
+
     const body = await request.json();
     const { message, history = [] } = body;
 
@@ -302,10 +329,10 @@ export async function POST(request: Request) {
     });
     if (handled) return sseText(handled);
 
-    const hermesResponse = await callHermes(message, history);
+    const hermesResponse = await callHermes(message, history, hermesPrompt);
     if (hermesResponse) return sseFromOpenAIStream(hermesResponse);
 
-    const kimiResponse = await callKimi(message, history);
+    const kimiResponse = await callKimi(message, history, kimiPrompt);
     if (kimiResponse) return sseFromOpenAIStream(kimiResponse);
 
     return sseText("Je n'arrive pas à joindre Hermes pour l'instant. Les actions directes comme météo, VPS et sites restent disponibles.");
