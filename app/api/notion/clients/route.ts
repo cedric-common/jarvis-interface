@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
 
     if (!searchRes.ok) {
       const text = await searchRes.text();
-      return NextResponse.json({ error: `Notion search error: ${text}` }, { status: 500 });
+      return NextResponse.json(
+        { error: `Notion search error: ${text}`, status: searchRes.status, statusText: searchRes.statusText },
+        { status: 500 }
+      );
     }
 
     const searchData = await searchRes.json();
@@ -34,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     if (databases.length === 0) {
       return NextResponse.json(
-        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS" },
+        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS", rawResults: searchData.results?.length || 0 },
         { status: 404 }
       );
     }
