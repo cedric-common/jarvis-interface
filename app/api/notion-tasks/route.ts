@@ -243,8 +243,8 @@ export async function GET(req: NextRequest) {
   const includeUnscheduled = searchParams.get("includeUnscheduled") === "1";
   const viewAllParam = searchParams.get("view") === "all";
   const isAdmin = profile?.role === "admin" || user.email === "cedric@agencecommon.com";
-  const notionName = profile?.notion_name || profile?.full_name || user.email || "";
-  const viewAll = viewAllParam || isAdmin;
+  const notionName = profile?.notion_name || profile?.full_name || (user.email === "cedric@agencecommon.com" ? "Cédric" : user.email) || "";
+  const viewAll = viewAllParam; // admin voit tout seulement si ?view=all explicitement
 
   const today = parisDateString();
   const startDate = addDays(today, -30);
