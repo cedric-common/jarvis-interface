@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           setProfile(minimalProfile);
           // Also insert it into DB so next time it's there
-          supabase.from("profiles").insert(minimalProfile).then(({ error }) => {
-            if (error) console.error("[AuthContext] Failed to insert profile:", error.message);
+          supabase.from("profiles").insert(minimalProfile).then((res: { error?: { message: string } | null }) => {
+            if (res.error) console.error("[AuthContext] Failed to insert profile:", res.error.message);
           });
         } else {
           setProfile(data);
@@ -114,8 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 updated_at: new Date().toISOString(),
               };
               setProfile(minimalProfile);
-              supabase.from("profiles").insert(minimalProfile).then(({ error }) => {
-                if (error) console.error("[AuthContext] Failed to insert profile:", error.message);
+              supabase.from("profiles").insert(minimalProfile).then((res: { error?: { message: string } | null }) => {
+                if (res.error) console.error("[AuthContext] Failed to insert profile:", res.error.message);
               });
             } else {
               setProfile(data);
