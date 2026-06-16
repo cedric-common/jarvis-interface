@@ -99,23 +99,19 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("google_refresh_token, google_access_token")
-    .eq("id", user.id)
-    .single();
+  const accessToken = (session as any)?.provider_token;
+  const refreshToken = (session as any)?.provider_refresh_token;
 
-  const refreshToken = profile?.google_refresh_token;
-  const accessToken = profile?.google_access_token;
-
-  if (!refreshToken && !accessToken) {
+  if (!accessToken && !refreshToken) {
     return NextResponse.json(
-      { error: "Gmail non connecté. Déconnecte-toi et reconnecte-toi avec Google pour autoriser l'accès." },
+      { error: "Gmail non connecté. Reconnecte-toi avec Google pour autoriser l'accès Gmail." },
       { status: 400 }
     );
   }
