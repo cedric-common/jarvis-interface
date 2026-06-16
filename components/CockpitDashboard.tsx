@@ -211,13 +211,20 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
 
   return (
     <motion.section
-      initial={{ opacity: 0, x: -24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.25, type: "spring", stiffness: 90 }}
+      initial={{ opacity: 0, x: -80, scale: 0.96 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ delay: 0.15, type: "spring", stiffness: 70, damping: 18 }}
       className="fixed left-3 right-3 top-[74px] z-20 sm:left-4 sm:right-auto sm:top-20 sm:w-[360px] lg:w-[390px] pointer-events-auto"
       aria-label="Cockpit JARVIS"
     >
       <div className="glass-panel rounded-3xl border-glow overflow-visible relative">
+        {/* Backdrop: close panels on click outside */}
+        {(showGmailPanel || showNotionPanel) && (
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => { setShowGmailPanel(false); setShowNotionPanel(false); }}
+          />
+        )}
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-cyan-300/70">Cockpit v1</p>
@@ -239,6 +246,17 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
               <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
               LIVE
             </div>
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.full_name || ""}
+                className="w-7 h-7 rounded-full border border-white/20 object-cover"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full border border-white/20 bg-white/10 flex items-center justify-center text-[10px] font-medium text-white/70">
+                {firstName(profile?.full_name)?.charAt(0)?.toUpperCase() || "?"}
+              </div>
+            )}
           </div>
         </div>
 
