@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { fetchHostinger } from "@/lib/hostinger";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -142,54 +141,10 @@ async function getWeatherAnswer() {
   return `À Solenzara maintenant : ${Math.round(current.temperature_2m)}°C, ressenti ${Math.round(current.apparent_temperature)}°C, ${description}. Vent ${Math.round(current.wind_speed_10m)} km/h, rafales ${Math.round(current.wind_gusts_10m)} km/h. Aujourd'hui : ${Math.round(daily.temperature_2m_min?.[0])}–${Math.round(daily.temperature_2m_max?.[0])}°C, risque de pluie ${daily.precipitation_probability_max?.[0] ?? 0}%.`;
 }
 
-async function getVpsAnswer() {
-  const data = await fetchHostinger("/vps/v1/virtual-machines");
-  const list = getList(data).filter((vps) => {
-    const state = getString(vps.state) || getString(vps.status);
-    return state !== "destroyed";
-  });
-  if (list.length === 0) return "Je n'ai trouvé aucun VPS Hostinger actif dans l'inventaire JARVIS.";
-  const inactive = list.filter((vps) => {
-    const state = getString(vps.state) || getString(vps.status);
-    return state && state !== "running" && state !== "online" && state !== "active";
-  });
-  const lines = list.slice(0, 8).map((vps) => {
-    const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
-    const name = getString(vps.hostname) || getString(vps.name) || `VPS ${getString(vps.id, "")}`.trim();
-    const ip = getString(ip4.address) || getString(vps.ipv4_address) || getString(vps.ip) || "IP inconnue";
-    const state = getString(vps.state) || getString(vps.status) || "statut inconnu";
-    return `• ${name} — ${ip} — ${state}`;
-  });
-  const warning = inactive.length
-    ? `\n\nÀ vérifier : ${inactive.length} VPS non actif. ${inactive.map((vps) => {
-        const name = getString(vps.hostname) || `VPS ${getString(vps.id, "")}`.trim();
-        const state = getString(vps.state) || getString(vps.status) || "statut inconnu";
-        const ip4 = Array.isArray(vps.ipv4) ? asRecord(vps.ipv4[0]) : {};
-        const ip = getString(ip4.address) || "aucune IPv4";
-        return `${name} est ${state} (${ip})`;
-      }).join(" ; ")}. Action conseillée : vérifier avant toute action automatique.`
-    : "";
-  return `Tu as ${list.length} VPS Hostinger :\n\n${lines.join("\n")}${warning}`;
-}
-
-async function getSitesAnswer() {
-  const data = await fetchHostinger("/hosting/v1/websites");
-  const list = getList(data);
-  if (list.length === 0) return "Je n'ai trouvé aucun site Hostinger.";
-  const lines = list.slice(0, 10).map((site) => `• ${getString(site.domain) || getString(site.name) || getString(site.website) || "site sans nom"}`);
-  return `Tu as ${list.length} sites Hostinger. Les premiers :\n\n${lines.join("\n")}`;
-}
-
 async function directAnswer(message: string) {
   const text = message.toLowerCase();
   if (text.includes("météo") || text.includes("meteo") || text.includes("temps") || text.includes("solenzara")) {
     return getWeatherAnswer();
-  }
-  if (text.includes("vps") || text.includes("serveur")) {
-    return getVpsAnswer();
-  }
-  if (text.includes("site") || text.includes("web")) {
-    return getSitesAnswer();
   }
   return null;
 }
@@ -203,7 +158,6 @@ function buildContextPrompt(context: Record<string, unknown>): string {
 
   const tasks = Array.isArray(context.tasks) ? context.tasks : [];
   const emails = Array.isArray(context.emails) ? context.emails : [];
-  const vps = Array.isArray(context.vps) ? context.vps : [];
   const calendar = Array.isArray(context.calendar) ? context.calendar : [];
 
   if (tasks.length > 0) {
@@ -222,11 +176,6 @@ function buildContextPrompt(context: Record<string, unknown>): string {
 
   if (emails.length > 0) {
     parts.push(`📧 Gmail : ${emails.length} emails non lus. Derniers : ${emails.slice(0, 2).map((e: any) => e.subject).join(", ")}.`);
-  }
-
-  if (vps.length > 0) {
-    const inactive = vps.filter((v: any) => v.state !== "running").length;
-    parts.push(`🖥️ VPS : ${vps.length} total — ${vps.length - inactive} actifs${inactive > 0 ? `, ${inactive} à vérifier` : ""}.`);
   }
 
   if (calendar.length > 0) {
@@ -384,7 +333,7 @@ export async function POST(request: Request) {
     const kimiResponse = await callKimi(message, history, kimiPromptWithContext);
     if (kimiResponse) return sseFromOpenAIStream(kimiResponse);
 
-    return sseText("Je n'arrive pas à joindre Hermes pour l'instant. Les actions directes comme météo, VPS et sites restent disponibles.");
+    return sseText("Je n'arrive pas à joindre Hermes pour l'instant. Les actions directes comme météo restent disponibles.");
   } catch (err) {
     console.error("JARVIS Hermes route error:", err);
     return sseText("Désolé, une erreur de connexion est survenue côté JARVIS. Réessaie dans quelques secondes.");
