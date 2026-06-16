@@ -363,7 +363,7 @@ export default function Home() {
           <div>
             <h1 className="text-sm font-semibold text-white tracking-tight">JARVIS</h1>
             <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">
-              {profile?.full_name ? `Bonjour ${profile.full_name.split(" ")[0]}` : "Hermes Interface"}
+              Interface Hermes
             </p>
           </div>
         </div>
