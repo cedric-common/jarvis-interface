@@ -606,7 +606,6 @@ function CreateTaskForm({
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [clientsLoading, setClientsLoading] = useState(true);
-  const [clientsError, setClientsError] = useState("");
 
   useEffect(() => {
     fetch("/api/notion/members", { cache: "no-store" })
@@ -620,12 +619,12 @@ function CreateTaskForm({
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) {
-          setClientsError(data.hint || data.error || "Erreur de chargement");
+          console.warn("Clients load error:", data.error);
           return;
         }
         if (Array.isArray(data.clients)) setClients(data.clients);
       })
-      .catch(() => setClientsError("Erreur réseau"))
+      .catch(() => {})
       .finally(() => setClientsLoading(false));
   }, []);
 
@@ -669,16 +668,10 @@ function CreateTaskForm({
       <select
         value={clientId}
         onChange={(e) => setClientId(e.target.value)}
-        disabled={clientsLoading || !!clientsError}
+        disabled={clientsLoading}
         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white focus:outline-none focus:border-cyan-400/40 disabled:opacity-40 appearance-none"
       >
-        {clientsError ? (
-          <option value="" className="bg-black text-orange-300">
-            {clientsError}
-          </option>
-        ) : (
-          <option value="" className="bg-black text-white/50">Sans client</option>
-        )}
+        <option value="" className="bg-black text-white/50">Sans client</option>
         {clients.map((c) => (
           <option key={c.id} value={c.id} className="bg-black text-white">
             {c.name}

@@ -44,13 +44,8 @@ export async function GET(req: NextRequest) {
     });
 
     if (databases.length === 0) {
-      // Fallback: return titles of what was found for debugging
-      const foundTitles = allResults
-        .filter((r: any) => r.object === "database" || r.object === "data_source")
-        .map((r: any) => (r.title || []).map((t: any) => t.plain_text || t.text?.content || "").join(""));
-      
       return NextResponse.json(
-        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS", foundTitles, totalResults: allResults.length },
+        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS" },
         { status: 404 }
       );
     }
@@ -88,20 +83,12 @@ export async function GET(req: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: `Notion query error: ${lastError}`, dbId },
+        { error: `Notion query error: ${lastError}` },
         { status: 500 }
       );
     }
 
     const pages = data.results || [];
-
-    // Debug: show property types from first result
-    const firstPageProps = pages[0]?.properties || {};
-    const propTypes = Object.entries(firstPageProps).map(([k, v]: [string, any]) => ({
-      name: k,
-      type: v?.type,
-      sample: v?.title ? (v.title[0]?.plain_text || v.title[0]?.text?.content) : undefined,
-    }));
 
     const clients = pages
       .map((page: any) => {
@@ -122,7 +109,7 @@ export async function GET(req: NextRequest) {
       .filter((c: any) => c.name && c.name !== "Sans nom")
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ clients, rawCount: pages.length, propTypes, dbName: db.title?.[0]?.plain_text || db.title?.[0]?.text?.content });
+    return NextResponse.json({ clients });
   } catch (err) {
     console.error("Notion clients error:", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
