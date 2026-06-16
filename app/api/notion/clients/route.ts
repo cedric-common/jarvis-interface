@@ -32,11 +32,25 @@ export async function GET(req: NextRequest) {
     }
 
     const searchData = await searchRes.json();
-    const databases = (searchData.results || []).filter((r: any) => r.object === "database" || r.object === "data_source");
+    const allResults = searchData.results || [];
+    
+    // Filter for databases/data_sources whose title contains "Clients"
+    const databases = allResults.filter((r: any) => {
+      const title = (r.title || [])
+        .map((t: any) => t.plain_text || t.text?.content || "")
+        .join("")
+        .toLowerCase();
+      return (r.object === "database" || r.object === "data_source") && title.includes("clients");
+    });
 
     if (databases.length === 0) {
+      // Fallback: return titles of what was found for debugging
+      const foundTitles = allResults
+        .filter((r: any) => r.object === "database" || r.object === "data_source")
+        .map((r: any) => (r.title || []).map((t: any) => t.plain_text || t.text?.content || "").join(""));
+      
       return NextResponse.json(
-        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS", rawResults: searchData.results?.length || 0 },
+        { error: "Base 'Clients Comm'On' non trouvée", hint: "Vérifiez le nom ou partagez la base avec l'intégration JARVIS", foundTitles, totalResults: allResults.length },
         { status: 404 }
       );
     }
