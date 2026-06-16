@@ -194,13 +194,13 @@ export default function CockpitDashboard({ onAction, profile, onLogout, onContex
   const totalVps = vms.length || status?.totalVps || status?.vpsCount || 0;
   const infraOk = totalVps > 0 && runningVps === totalVps;
 
-  const handleCreateTask = async (title: string, date?: string, assignee?: string) => {
+  const handleCreateTask = async (title: string, date?: string, assigneeId?: string) => {
     setCreateTaskLoading(true);
     try {
       const res = await fetch("/api/notion/create-task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, date, assignee }),
+        body: JSON.stringify({ title, date, assigneeId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -594,19 +594,30 @@ function CreateTaskForm({
   onCancel,
   loading,
 }: {
-  onSubmit: (title: string, date?: string, assignee?: string) => void;
+  onSubmit: (title: string, date?: string, assigneeId?: string) => void;
   onCancel: () => void;
   loading: boolean;
 }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
-  const [assignee, setAssignee] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/notion/members", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.members)) setMembers(data.members);
+      })
+      .finally(() => setMembersLoading(false));
+  }, []);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (title.trim()) onSubmit(title.trim(), date || undefined, assignee || undefined);
+        if (title.trim()) onSubmit(title.trim(), date || undefined, assigneeId || undefined);
       }}
       className="p-2 space-y-2"
     >
@@ -625,13 +636,19 @@ function CreateTaskForm({
           onChange={(e) => setDate(e.target.value)}
           className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
         />
-        <input
-          type="text"
-          placeholder="Assigné"
-          value={assignee}
-          onChange={(e) => setAssignee(e.target.value)}
-          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
-        />
+        <select
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+          disabled={membersLoading}
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white focus:outline-none focus:border-cyan-400/40 disabled:opacity-40 appearance-none"
+        >
+          <option value="" className="bg-black text-white/50">Non assigné</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id} className="bg-black text-white">
+              {m.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="flex gap-2">
         <button

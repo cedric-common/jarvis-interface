@@ -9,7 +9,8 @@ const DEFAULT_DB_ID = "10eeecec-3c85-81f0-a8e4-000bd4f3ce6d";
 interface CreateTaskBody {
   title: string;
   date?: string; // YYYY-MM-DD
-  assignee?: string; // notion person name
+  assignee?: string; // notion person name (legacy)
+  assigneeId?: string; // notion person id (preferred)
   databaseId?: string;
   status?: string;
   priority?: string;
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: CreateTaskBody = await req.json();
-    const { title, date, assignee, databaseId = DEFAULT_DB_ID, status, priority } = body;
+    const { title, date, assignee, assigneeId, databaseId = DEFAULT_DB_ID, status, priority } = body;
 
     if (!title || typeof title !== "string") {
       return NextResponse.json({ error: "Titre requis" }, { status: 400 });
@@ -47,10 +48,12 @@ export async function POST(req: NextRequest) {
       properties["Priorité"] = { select: { name: priority } };
     }
 
-    // Add assignee if provided — need to find person ID first
-    if (assignee) {
+    // Add assignee if provided — use ID directly if given, otherwise search by name
+    if (assigneeId) {
+      properties["Responsable"] = { people: [{ id: assigneeId }] };
+    } else if (assignee) {
       // Try to find the person in the database
-      const peopleRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      const peopleRes = await fetch(`https://api.notion.com/v1/data_sources/${databaseId}/query`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${NOTION_API_KEY}`,
