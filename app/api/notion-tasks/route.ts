@@ -58,7 +58,7 @@ const databases: Array<{
   archiveProps: string[];
 }> = [
   {
-    id: "10eeecec-3c85-8005-9485-eaf04db9f9d7",
+    id: "10eeecec-3c85-81f0-a8e4-000bd4f3ce6d",
     source: "Tâches Globales",
     dateProp: "Date de publication",
     assigneeProps: ["Responsable", "Assigné"],
@@ -66,7 +66,7 @@ const databases: Array<{
     archiveProps: ["Archiver"],
   },
   {
-    id: "72f1554f-2420-4b0a-84bd-f1b56d598cf7",
+    id: "c024dc03-cacb-4453-a893-631b6f3d43bc",
     source: "Tâches de l'équipe",
     dateProp: "Date d'échéance",
     assigneeProps: ["Assigné", "Responsable"],
