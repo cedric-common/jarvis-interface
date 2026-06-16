@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
-const NOTION_VERSION = "2022-06-28";
+const NOTION_VERSION = "2025-09-03";
 const PARIS_TIME_ZONE = "Europe/Paris";
 
 type Bucket = "overdue" | "today" | "upcoming" | "unscheduled";
@@ -190,7 +190,7 @@ async function queryDatabase(
   let start_cursor: string | undefined;
 
   do {
-    const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+    const res = await fetch(`https://api.notion.com/v1/data_sources/${dbId}/query`, {
       method: "POST",
       headers,
       body: JSON.stringify({
