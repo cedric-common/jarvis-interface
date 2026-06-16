@@ -106,26 +106,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  const accessToken = (session as any)?.provider_token;
-  const refreshToken = (session as any)?.provider_refresh_token;
+  // Try profile tokens first (stored from auth/callback)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("google_refresh_token, google_access_token")
+    .eq("id", user.id)
+    .single();
 
-  if (!accessToken && !refreshToken) {
-    return NextResponse.json(
-      { error: "Gmail non connecté. Reconnecte-toi avec Google pour autoriser l'accès Gmail." },
-      { status: 400 }
-    );
-  }
+  let effectiveAccessToken: string | null = profile?.google_access_token || (session as any)?.provider_token || null;
+  const refreshToken = profile?.google_refresh_token || (session as any)?.provider_refresh_token;
 
-  let effectiveAccessToken: string | null = accessToken || null;
-  
-  if (refreshToken) {
+  if (!effectiveAccessToken && refreshToken) {
     effectiveAccessToken = await refreshAccessToken(refreshToken);
+    // Update access token in DB if refreshed
+    if (effectiveAccessToken) {
+      await supabase.from("profiles").update({ google_access_token: effectiveAccessToken }).eq("id", user.id);
+    }
   }
 
   if (!effectiveAccessToken) {
     return NextResponse.json(
-      { error: "Impossible d'accéder à Gmail. Réautorise l'accès." },
-      { status: 500 }
+      { error: "Gmail non connecté. Reconnecte-toi avec Google pour autoriser l'accès Gmail." },
+      { status: 400 }
     );
   }
 
