@@ -13,7 +13,27 @@ export async function GET(req: NextRequest) {
   const databaseId = searchParams.get("databaseId") || DEFAULT_DB_ID;
 
   try {
-    // Query a batch of pages to extract people already assigned
+    // 1. Try to list all workspace users first
+    const usersRes = await fetch("https://api.notion.com/v1/users?page_size=100", {
+      headers: {
+        Authorization: `Bearer ${NOTION_API_KEY}`,
+        "Notion-Version": NOTION_VERSION,
+      },
+    });
+
+    if (usersRes.ok) {
+      const usersData = await usersRes.json();
+      const people = (usersData.results || [])
+        .filter((u: any) => u.type === "person" && u.name)
+        .map((u: any) => ({ id: u.id, name: u.name }))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+      if (people.length > 0) {
+        return NextResponse.json({ members: people });
+      }
+    }
+
+    // 2. Fallback: extract people from existing pages in the database
     const res = await fetch(`https://api.notion.com/v1/data_sources/${databaseId}/query`, {
       method: "POST",
       headers: {
