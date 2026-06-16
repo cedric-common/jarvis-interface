@@ -194,13 +194,13 @@ export default function CockpitDashboard({ onAction, profile, onLogout, onContex
   const totalVps = vms.length || status?.totalVps || status?.vpsCount || 0;
   const infraOk = totalVps > 0 && runningVps === totalVps;
 
-  const handleCreateTask = async (title: string, date?: string, assigneeId?: string) => {
+  const handleCreateTask = async (title: string, date?: string, assigneeId?: string, clientId?: string) => {
     setCreateTaskLoading(true);
     try {
       const res = await fetch("/api/notion/create-task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, date, assigneeId }),
+        body: JSON.stringify({ title, date, assigneeId, clientId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -594,15 +594,18 @@ function CreateTaskForm({
   onCancel,
   loading,
 }: {
-  onSubmit: (title: string, date?: string, assigneeId?: string) => void;
+  onSubmit: (title: string, date?: string, assigneeId?: string, clientId?: string) => void;
   onCancel: () => void;
   loading: boolean;
 }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
+  const [clientId, setClientId] = useState("");
   const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/notion/members", { cache: "no-store" })
@@ -611,13 +614,20 @@ function CreateTaskForm({
         if (Array.isArray(data.members)) setMembers(data.members);
       })
       .finally(() => setMembersLoading(false));
+
+    fetch("/api/notion/clients", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.clients)) setClients(data.clients);
+      })
+      .finally(() => setClientsLoading(false));
   }, []);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (title.trim()) onSubmit(title.trim(), date || undefined, assigneeId || undefined);
+        if (title.trim()) onSubmit(title.trim(), date || undefined, assigneeId || undefined, clientId || undefined);
       }}
       className="p-2 space-y-2"
     >
@@ -650,6 +660,19 @@ function CreateTaskForm({
           ))}
         </select>
       </div>
+      <select
+        value={clientId}
+        onChange={(e) => setClientId(e.target.value)}
+        disabled={clientsLoading}
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white focus:outline-none focus:border-cyan-400/40 disabled:opacity-40 appearance-none"
+      >
+        <option value="" className="bg-black text-white/50">Sans client</option>
+        {clients.map((c) => (
+          <option key={c.id} value={c.id} className="bg-black text-white">
+            {c.name}
+          </option>
+        ))}
+      </select>
       <div className="flex gap-2">
         <button
           type="submit"

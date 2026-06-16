@@ -11,6 +11,7 @@ interface CreateTaskBody {
   date?: string; // YYYY-MM-DD
   assignee?: string; // notion person name (legacy)
   assigneeId?: string; // notion person id (preferred)
+  clientId?: string; // notion client page id
   databaseId?: string;
   status?: string;
   priority?: string;
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: CreateTaskBody = await req.json();
-    const { title, date, assignee, assigneeId, databaseId = DEFAULT_DB_ID, status, priority } = body;
+    const { title, date, assignee, assigneeId, clientId, databaseId = DEFAULT_DB_ID, status, priority } = body;
 
     if (!title || typeof title !== "string") {
       return NextResponse.json({ error: "Titre requis" }, { status: 400 });
@@ -82,6 +83,11 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+    }
+
+    // Add client if provided — try relation first, then select fallback
+    if (clientId) {
+      properties["Client"] = { relation: [{ id: clientId }] };
     }
 
     const res = await fetch("https://api.notion.com/v1/pages", {
