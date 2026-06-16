@@ -126,21 +126,6 @@ export default function HUDCanvas() {
       ctx.lineTo(cx, cy + 300);
       ctx.stroke();
 
-      // Center hexagon
-      const hexRadius = 60 + Math.sin(tick * 0.02) * 3;
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + tick * 0.005;
-        const x = cx + Math.cos(a) * hexRadius;
-        const y = cy + Math.sin(a) * hexRadius;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.strokeStyle = "rgba(0, 212, 255, 0.2)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
       // Particles
       particles.forEach((p) => {
         p.x += p.vx;
