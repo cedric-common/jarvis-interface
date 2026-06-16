@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
   // Capture Google tokens for Gmail integration
   const refreshToken = (session as any).provider_refresh_token;
   const accessToken = (session as any).provider_token;
-  const fullName = session.user.user_metadata?.full_name;
-  const avatarUrl = session.user.user_metadata?.avatar_url;
+  const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+  const avatarUrl = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
   
   console.log("[auth/callback] provider_refresh_token present:", !!refreshToken);
   console.log("[auth/callback] provider_token present:", !!accessToken);

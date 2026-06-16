@@ -43,13 +43,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", user.id)
           .single();
         // Fallback to Google metadata if profile fields are empty
-        if (data && !data.full_name && user.user_metadata?.full_name) {
-          data.full_name = user.user_metadata.full_name;
+        const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+        if (data && !data.full_name && googleName) {
+          data.full_name = googleName;
         }
-        if (data && !data.notion_name && user.user_metadata?.full_name) {
-          data.notion_name = user.user_metadata.full_name;
+        if (data && !data.notion_name && googleName) {
+          data.notion_name = googleName;
         }
-        setProfile(data);
+        // If no profile row exists at all, create a minimal one from Google metadata
+        if (!data && googleName) {
+          const minimalProfile: Profile = {
+            id: user.id,
+            email: user.email || "",
+            full_name: googleName,
+            role: "cm",
+            notion_name: googleName,
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          setProfile(minimalProfile);
+          // Also insert it into DB so next time it's there
+          supabase.from("profiles").insert(minimalProfile).then(({ error }) => {
+            if (error) console.error("[AuthContext] Failed to insert profile:", error.message);
+          });
+        } else {
+          setProfile(data);
+        }
       } else {
         setProfile(null);
       }
@@ -74,13 +94,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single()
           .then(({ data }: { data: Profile | null }) => {
             // Fallback to Google metadata if profile fields are empty
-            if (data && !data.full_name && nextUser.user_metadata?.full_name) {
-              data.full_name = nextUser.user_metadata.full_name;
+            const googleName = nextUser.user_metadata?.full_name || nextUser.user_metadata?.name;
+            if (data && !data.full_name && googleName) {
+              data.full_name = googleName;
             }
-            if (data && !data.notion_name && nextUser.user_metadata?.full_name) {
-              data.notion_name = nextUser.user_metadata.full_name;
+            if (data && !data.notion_name && googleName) {
+              data.notion_name = googleName;
             }
-            setProfile(data);
+            // If no profile row exists at all, create a minimal one from Google metadata
+            if (!data && googleName) {
+              const minimalProfile: Profile = {
+                id: nextUser.id,
+                email: nextUser.email || "",
+                full_name: googleName,
+                role: "cm",
+                notion_name: googleName,
+                avatar_url: nextUser.user_metadata?.avatar_url || nextUser.user_metadata?.picture || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+              setProfile(minimalProfile);
+              supabase.from("profiles").insert(minimalProfile).then(({ error }) => {
+                if (error) console.error("[AuthContext] Failed to insert profile:", error.message);
+              });
+            } else {
+              setProfile(data);
+            }
           });
       } else {
         setProfile(null);
