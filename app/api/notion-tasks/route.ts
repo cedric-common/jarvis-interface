@@ -250,6 +250,15 @@ export async function GET(req: NextRequest) {
   const endDate = addDays(today, days);
   const tasks: NotionTask[] = [];
   const errors: string[] = [];
+  const debug: Record<string, unknown> = {
+    notionName,
+    isAdmin,
+    viewAll,
+    startDate,
+    endDate,
+    today,
+    databases: [] as Array<{source: string; rawCount: number; afterUserFilter: number; afterArchive: number; afterDone: number; afterBucket: number; error?: string}>,
+  };
 
   const headers = {
     Authorization: `Bearer ${NOTION_API_KEY}`,
@@ -258,21 +267,35 @@ export async function GET(req: NextRequest) {
   };
 
   for (const db of databases) {
+    let rawCount = 0;
+    let afterUserFilter = 0;
+    let afterArchive = 0;
+    let afterDone = 0;
+    let afterBucket = 0;
+    let error: string | undefined;
+
     try {
       const pages = await queryDatabase(db.id, db.dateProp, startDate, endDate, headers, includeUnscheduled);
+      rawCount = pages.length;
 
       for (const page of pages) {
         const props = page.properties || {};
         if (!viewAll || !isAdmin) {
           if (!isUserTask(props, db.assigneeProps, notionName)) continue;
         }
+        afterUserFilter++;
+
         if (isArchived(props, db.archiveProps)) continue;
+        afterArchive++;
+
         if (isDone(props, db.doneProps)) continue;
+        afterDone++;
 
         const dueDate = dateStart(props[db.dateProp]);
         const bucket = bucketForDate(dueDate, today);
         if (bucket === "unscheduled" && !includeUnscheduled) continue;
         if (bucket === "upcoming" && dueDate && dueDate > endDate) continue;
+        afterBucket++;
 
         tasks.push({
           id: page.id,
@@ -286,10 +309,22 @@ export async function GET(req: NextRequest) {
           url: page.url,
         });
       }
-    } catch (error) {
-      console.error(error);
-      errors.push(db.source);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(msg);
+      errors.push(`${db.source}: ${msg}`);
+      error = msg;
     }
+
+    (debug.databases as Array<unknown>).push({
+      source: db.source,
+      rawCount,
+      afterUserFilter,
+      afterArchive,
+      afterDone,
+      afterBucket,
+      error,
+    });
   }
 
   tasks.sort((a, b) => {
@@ -309,5 +344,5 @@ export async function GET(req: NextRequest) {
     }).length,
   };
 
-  return NextResponse.json({ tasks, summary, date: today, horizonDays: days, errors });
+  return NextResponse.json({ tasks, summary, date: today, horizonDays: days, errors, debug });
 }
