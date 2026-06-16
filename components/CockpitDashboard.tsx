@@ -217,7 +217,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       className="fixed left-3 right-3 top-[74px] z-20 sm:left-4 sm:right-auto sm:top-20 sm:w-[360px] lg:w-[390px] pointer-events-auto"
       aria-label="Cockpit JARVIS"
     >
-      <div className="glass-panel rounded-3xl border-glow overflow-hidden relative">
+      <div className="glass-panel rounded-3xl border-glow overflow-visible relative">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-cyan-300/70">Cockpit v1</p>
