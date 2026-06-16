@@ -35,26 +35,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=auth", request.url));
   }
 
-  // Capture Google refresh token for Gmail integration
+  // Capture Google tokens for Gmail integration
   const refreshToken = (session as any).provider_refresh_token;
-  console.log("[auth/callback] provider_refresh_token present:", !!refreshToken);
+  const accessToken = (session as any).provider_token;
   
-  if (refreshToken) {
+  console.log("[auth/callback] provider_refresh_token present:", !!refreshToken);
+  console.log("[auth/callback] provider_token present:", !!accessToken);
+  
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (refreshToken) updateData.google_refresh_token = refreshToken;
+  if (accessToken) updateData.google_access_token = accessToken;
+  
+  if (refreshToken || accessToken) {
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({
-        google_refresh_token: refreshToken,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", session.user.id);
     
     if (updateError) {
-      console.error("[auth/callback] Failed to save refresh token:", updateError.message);
+      console.error("[auth/callback] Failed to save tokens:", updateError.message);
     } else {
-      console.log("[auth/callback] Refresh token saved for user:", session.user.id);
+      console.log("[auth/callback] Tokens saved for user:", session.user.id);
     }
   } else {
-    console.log("[auth/callback] No provider_refresh_token in session — user may need to revoke and re-auth");
+    console.log("[auth/callback] No Google tokens in session");
   }
 
   return NextResponse.redirect(new URL("/", request.url));

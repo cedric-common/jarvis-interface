@@ -106,26 +106,34 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("google_refresh_token")
+    .select("google_refresh_token, google_access_token")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.google_refresh_token) {
+  const refreshToken = profile?.google_refresh_token;
+  const accessToken = profile?.google_access_token;
+
+  if (!refreshToken && !accessToken) {
     return NextResponse.json(
       { error: "Gmail non connecté. Déconnecte-toi et reconnecte-toi avec Google pour autoriser l'accès." },
       { status: 400 }
     );
   }
 
-  const accessToken = await refreshAccessToken(profile.google_refresh_token);
-  if (!accessToken) {
+  let effectiveAccessToken: string | null = accessToken || null;
+  
+  if (refreshToken) {
+    effectiveAccessToken = await refreshAccessToken(refreshToken);
+  }
+
+  if (!effectiveAccessToken) {
     return NextResponse.json(
-      { error: "Impossible de rafraîchir le token Gmail. Réautorise l'accès." },
+      { error: "Impossible d'accéder à Gmail. Réautorise l'accès." },
       { status: 500 }
     );
   }
 
-  const messages = await listUnreadMessages(accessToken);
+  const messages = await listUnreadMessages(effectiveAccessToken);
 
   return NextResponse.json({
     count: messages.length,
