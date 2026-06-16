@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { User, Cpu, Mic, Volume2, X } from "lucide-react";
 import TypingIndicator from "./TypingIndicator";
 
@@ -20,6 +20,7 @@ interface ChatPanelProps {
   onReplayLastAssistant?: () => void;
   onClose?: () => void;
   isTyping?: boolean;
+  onSendMessage?: (text: string) => void;
 }
 
 export default function ChatPanel({
@@ -30,8 +31,10 @@ export default function ChatPanel({
   onReplayLastAssistant,
   onClose,
   isTyping,
+  onSendMessage,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [inputText, setInputText] = useState("");
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -42,6 +45,14 @@ export default function ChatPanel({
   const lastAssistantMessage = useMemo(() => {
     return [...messages].reverse().find((m) => m.role === "assistant");
   }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputText.trim() && onSendMessage) {
+      onSendMessage(inputText.trim());
+      setInputText("");
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -101,7 +112,7 @@ export default function ChatPanel({
                   <Cpu className="w-10 h-10" />
                   <p className="text-xs font-mono uppercase tracking-wider">Conversation vide</p>
                   <p className="text-[10px] text-white/10 text-center max-w-[200px]">
-                    Appuyez sur le micro et parlez-moi. Je suis là pour vous aider.
+                    Écrivez ou utilisez le micro pour parler.
                   </p>
                 </div>
               )}
@@ -169,15 +180,34 @@ export default function ChatPanel({
               )}
             </div>
 
-            {/* Input hint */}
-            <div className="px-4 sm:px-5 py-3 border-t border-white/5 flex-shrink-0">
-              <div className="flex items-center gap-2 text-white/20">
+            {/* Text Input */}
+            <form
+              onSubmit={handleSubmit}
+              className="px-4 sm:px-5 py-3 border-t border-white/5 flex-shrink-0"
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="Écrivez un message..."
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() || isTyping}
+                  className="rounded-xl bg-cyan-500/20 border border-cyan-400/30 px-3 py-2 text-[13px] font-medium text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-40 transition-colors"
+                >
+                  Envoyer
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-white/20">
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-glow/50 animate-pulse" />
                 <span className="text-[10px] font-mono uppercase tracking-wider">
-                  {isListening ? "Enregistrement en cours..." : "Utilisez le micro pour parler"}
+                  {isListening ? "Enregistrement en cours..." : "Micro disponible"}
                 </span>
               </div>
-            </div>
+            </form>
           </div>
         </motion.div>
       )}

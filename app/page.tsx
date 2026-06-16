@@ -329,6 +329,11 @@ export default function Home() {
     [addMessage, sendMessageToHermes, muted, speak]
   );
 
+  const handleSendTextMessage = useCallback((text: string) => {
+    addMessage("user", text);
+    sendMessageToHermes(text);
+  }, [addMessage, sendMessageToHermes]);
+
   const handleReplayLastAssistant = useCallback(() => {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (lastAssistant) {
@@ -493,6 +498,7 @@ export default function Home() {
         onReplayLastAssistant={handleReplayLastAssistant}
         onClose={() => setChatOpen(false)}
         isTyping={isTyping}
+        onSendMessage={handleSendTextMessage}
       />
     </main>
   );
