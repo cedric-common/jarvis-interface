@@ -37,14 +37,24 @@ export async function GET(request: NextRequest) {
 
   // Capture Google refresh token for Gmail integration
   const refreshToken = (session as any).provider_refresh_token;
+  console.log("[auth/callback] provider_refresh_token present:", !!refreshToken);
+  
   if (refreshToken) {
-    await supabase
+    const { error: updateError } = await supabase
       .from("profiles")
       .update({
         google_refresh_token: refreshToken,
         updated_at: new Date().toISOString(),
       })
       .eq("id", session.user.id);
+    
+    if (updateError) {
+      console.error("[auth/callback] Failed to save refresh token:", updateError.message);
+    } else {
+      console.log("[auth/callback] Refresh token saved for user:", session.user.id);
+    }
+  } else {
+    console.log("[auth/callback] No provider_refresh_token in session — user may need to revoke and re-auth");
   }
 
   return NextResponse.redirect(new URL("/", request.url));
