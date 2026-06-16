@@ -29,10 +29,22 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (error) {
+  if (error || !session) {
     return NextResponse.redirect(new URL("/login?error=auth", request.url));
+  }
+
+  // Capture Google refresh token for Gmail integration
+  const refreshToken = (session as any).provider_refresh_token;
+  if (refreshToken) {
+    await supabase
+      .from("profiles")
+      .update({
+        google_refresh_token: refreshToken,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.user.id);
   }
 
   return NextResponse.redirect(new URL("/", request.url));

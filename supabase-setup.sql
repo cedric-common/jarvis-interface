@@ -11,6 +11,9 @@ create table public.profiles (
   avatar_url text,
   role text not null default 'cm' check (role in ('admin', 'cm')),
   notion_name text,
+  google_refresh_token text,
+  google_access_token text,
+  google_token_expires_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

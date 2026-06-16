@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, CalendarClock, CloudSun, ListTodo, LogOut, RadioTower, Server, Send, ShieldCheck, Zap } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, ListTodo, LogOut, Mail, RadioTower, Server, Send, ShieldCheck, Zap } from "lucide-react";
 import { Profile } from "@/types/profile";
 
 type WeatherData = {
@@ -31,6 +31,17 @@ type TaskData = {
   priority?: string;
   dueDate?: string | null;
   bucket?: "overdue" | "today" | "upcoming" | "unscheduled";
+};
+
+type GmailData = {
+  count: number;
+  messages: Array<{
+    id: string;
+    subject: string;
+    from: string;
+    snippet: string;
+    date: string;
+  }>;
 };
 
 type VpsData = {
@@ -81,6 +92,8 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
   const [status, setStatus] = useState<StatusData | null>(null);
   const [tasks, setTasks] = useState<TaskData[]>([]);
   const [vms, setVms] = useState<VpsData[]>([]);
+  const [gmail, setGmail] = useState<GmailData | null>(null);
+  const [gmailError, setGmailError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,11 +106,12 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
 
     async function load() {
       try {
-        const [weatherRes, statusRes, tasksRes, vpsRes] = await Promise.allSettled([
+        const [weatherRes, statusRes, tasksRes, vpsRes, gmailRes] = await Promise.allSettled([
           fetch("/api/weather", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/status", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/notion-tasks", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/vps-metrics", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/gmail/unread", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         if (cancelled) return;
@@ -105,6 +119,12 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
         if (statusRes.status === "fulfilled") setStatus(statusRes.value);
         if (tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value.tasks)) setTasks(tasksRes.value.tasks);
         if (vpsRes.status === "fulfilled" && Array.isArray(vpsRes.value.vms)) setVms(vpsRes.value.vms);
+        if (gmailRes.status === "fulfilled" && typeof gmailRes.value.count === "number") {
+          setGmail(gmailRes.value);
+          setGmailError(false);
+        } else if (gmailRes.status === "fulfilled" && gmailRes.value.error) {
+          setGmailError(true);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -157,6 +177,22 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""}`,
       detail: urgentTasks.length ? `${urgentTasks.length} urgente${urgentTasks.length > 1 ? "s" : ""}` : tasks[0]?.title ?? "Rien d'urgent détecté",
       action: "Mes tâches du jour",
+    },
+    {
+      title: "Gmail",
+      icon: Mail,
+      accent: gmailError ? "text-orange-300" : gmail && gmail.count > 0 ? "text-rose-300" : "text-emerald-300",
+      body: loading
+        ? "Synchronisation…"
+        : gmailError
+          ? "Non connecté"
+          : `${gmail?.count ?? 0} non lu${(gmail?.count ?? 0) > 1 ? "s" : ""}`,
+      detail: gmailError
+        ? "Reconnecte-toi avec Google pour activer"
+        : gmail && gmail.count > 0
+          ? gmail.messages[0]?.subject ?? "Nouveaux messages"
+          : "Boîte de réception vide",
+      action: gmailError ? "Comment connecter Gmail ?" : "Résumé mes emails non lus",
     },
     {
       title: "Infrastructure",
