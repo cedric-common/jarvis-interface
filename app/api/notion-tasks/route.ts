@@ -241,9 +241,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const days = Math.min(Math.max(Number(searchParams.get("days") || 7), 1), 30);
   const includeUnscheduled = searchParams.get("includeUnscheduled") === "1";
-  const viewAll = searchParams.get("view") === "all";
-  const isAdmin = profile?.role === "admin";
+  const viewAllParam = searchParams.get("view") === "all";
+  const isAdmin = profile?.role === "admin" || user.email === "cedric@agencecommon.com";
   const notionName = profile?.notion_name || profile?.full_name || user.email || "";
+  const viewAll = viewAllParam || isAdmin;
 
   const today = parisDateString();
   const startDate = addDays(today, -30);
