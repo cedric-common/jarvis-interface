@@ -41,12 +41,20 @@ export async function GET(req: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: `Notion error: ${lastError}`, hint: "Vérifiez que l'intégration JARVIS est partagée avec la base Clients Comm'On" },
+        { error: `Notion error: ${lastError}`, hint: "Vérifiez que l'intégration JARVIS est partagée avec la base Clients Comm'On", debug: { lastError, endpointsTried: endpoints.length } },
         { status: 500 }
       );
     }
 
     const pages = data.results || [];
+
+    // Debug: return first page properties to understand structure
+    const firstPageProps = pages[0]?.properties || {};
+    const propTypes = Object.entries(firstPageProps).map(([k, v]: [string, any]) => ({
+      name: k,
+      type: v?.type,
+      sample: v?.title ? (v.title[0]?.plain_text || v.title[0]?.text?.content) : undefined,
+    }));
 
     const clients = pages
       .map((page: any) => {
@@ -67,7 +75,7 @@ export async function GET(req: NextRequest) {
       .filter((c: any) => c.name && c.name !== "Sans nom")
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ clients, rawCount: pages.length });
+    return NextResponse.json({ clients, rawCount: pages.length, propTypes });
   } catch (err) {
     console.error("Notion clients error:", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
