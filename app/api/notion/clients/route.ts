@@ -19,7 +19,6 @@ export async function GET(req: NextRequest) {
       },
       body: JSON.stringify({
         query: "Clients Comm",
-        filter: { value: "database", property: "object" },
         page_size: 10,
       }),
     });
@@ -33,7 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     const searchData = await searchRes.json();
-    const databases = (searchData.results || []).filter((r: any) => r.object === "database");
+    const databases = (searchData.results || []).filter((r: any) => r.object === "database" || r.object === "data_source");
 
     if (databases.length === 0) {
       return NextResponse.json(
