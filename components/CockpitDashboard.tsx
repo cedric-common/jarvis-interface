@@ -94,6 +94,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
   const [vms, setVms] = useState<VpsData[]>([]);
   const [gmail, setGmail] = useState<GmailData | null>(null);
   const [gmailError, setGmailError] = useState(false);
+  const [showGmailPanel, setShowGmailPanel] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -168,7 +169,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       detail: loading
         ? "Météo et tâches en attente"
         : `${weather ? `${Math.round(weather.temperature ?? 0)}°C · ` : ""}${overdueTasks.length} retard · ${todayTasks.length} aujourd'hui · ${upcomingTasks.length} à venir`,
-      action: "Résume ma journée",
+      onClick: () => onAction("Résume ma journée"),
     },
     {
       title: "Tâches",
@@ -176,7 +177,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       accent: urgentTasks.length ? "text-rose-300" : "text-amber-300",
       body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""}`,
       detail: urgentTasks.length ? `${urgentTasks.length} urgente${urgentTasks.length > 1 ? "s" : ""}` : tasks[0]?.title ?? "Rien d'urgent détecté",
-      action: "Mes tâches du jour",
+      onClick: () => onAction("Mes tâches du jour"),
     },
     {
       title: "Gmail",
@@ -192,7 +193,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
         : gmail && gmail.count > 0
           ? gmail.messages[0]?.subject ?? "Nouveaux messages"
           : "Boîte de réception vide",
-      action: gmailError ? "Comment connecter Gmail ?" : "Résumé mes emails non lus",
+      onClick: () => setShowGmailPanel(!showGmailPanel),
     },
     {
       title: "Infrastructure",
@@ -202,9 +203,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       detail: infraOk
         ? `${status?.sitesCount ?? "—"} sites Hostinger · stable`
         : `${primaryInactiveVps ? compactHostname(primaryInactiveVps.hostname) : "1 VPS"} ${primaryInactiveVps?.state ?? "à vérifier"}`,
-      action: primaryInactiveVps
-        ? `Diagnostique le VPS ${primaryInactiveVps.hostname}`
-        : "État du serveur hermes",
+      onClick: () => onAction(primaryInactiveVps ? `Diagnostique le VPS ${primaryInactiveVps.hostname}` : "État du serveur hermes"),
     },
   ];
 
@@ -247,7 +246,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
             return (
               <button
                 key={card.title}
-                onClick={() => onAction(card.action)}
+                onClick={card.onClick}
                 className="group text-left rounded-2xl border border-white/10 bg-white/[0.035] hover:bg-white/[0.07] transition-all p-3"
               >
                 <div className="flex items-start gap-3">
@@ -267,6 +266,49 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
             );
           })}
         </div>
+
+        {/* Gmail Panel */}
+        {showGmailPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden"
+          >
+            <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 flex items-center gap-2">
+                <Mail className="w-3 h-3" /> Gmail non lus
+              </span>
+              <button
+                onClick={() => setShowGmailPanel(false)}
+                className="text-[10px] text-white/30 hover:text-white/60"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
+              {gmailError ? (
+                <p className="text-xs text-white/45 px-2 py-3">Gmail non connecté. Reconnecte-toi avec Google.</p>
+              ) : gmail && gmail.count > 0 ? (
+                gmail.messages.map((msg) => (
+                  <a
+                    key={msg.id}
+                    href={`https://mail.google.com/mail/u/0/#inbox/${msg.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-xl px-2.5 py-2 hover:bg-white/[0.07] transition-colors"
+                  >
+                    <p className="text-[11px] font-medium text-white truncate">{msg.subject}</p>
+                    <p className="text-[10px] text-white/45 truncate">{msg.from}</p>
+                    <p className="text-[10px] text-white/30 line-clamp-1 mt-0.5">{msg.snippet}</p>
+                  </a>
+                ))
+              ) : (
+                <p className="text-xs text-white/45 px-2 py-3">Aucun email non lu.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         <div className="px-3 pb-3 grid grid-cols-2 gap-2">
           <button onClick={() => onAction("Liste mes VPS")} className="rounded-2xl bg-cyan-500/10 border border-cyan-400/20 px-3 py-2 text-xs font-mono text-cyan-200 flex items-center justify-center gap-2">
