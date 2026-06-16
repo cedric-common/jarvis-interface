@@ -217,7 +217,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       className="fixed left-3 right-3 top-[74px] z-20 sm:left-4 sm:right-auto sm:top-20 sm:w-[360px] lg:w-[390px] pointer-events-auto"
       aria-label="Cockpit JARVIS"
     >
-      <div className="glass-panel rounded-3xl border-glow overflow-hidden">
+      <div className="glass-panel rounded-3xl border-glow overflow-hidden relative">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-cyan-300/70">Cockpit v1</p>
@@ -275,7 +275,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden"
+            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden sm:absolute sm:left-full sm:top-0 sm:ml-3 sm:w-[320px] lg:w-[340px] sm:mb-0 sm:mx-0 sm:glass-panel sm:border-glow"
           >
             <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 flex items-center gap-2">
@@ -318,7 +318,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden"
+            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden sm:absolute sm:left-full sm:top-0 sm:ml-3 sm:w-[320px] lg:w-[340px] sm:mb-0 sm:mx-0 sm:glass-panel sm:border-glow"
           >
             <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 flex items-center gap-2">
