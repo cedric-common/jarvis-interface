@@ -179,7 +179,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       accent: urgentTasks.length ? "text-rose-300" : "text-amber-300",
       body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""}`,
       detail: urgentTasks.length ? `${urgentTasks.length} urgente${urgentTasks.length > 1 ? "s" : ""}` : tasks[0]?.title ?? "Rien d'urgent détecté",
-      onClick: () => setShowNotionPanel(!showNotionPanel),
+      onClick: () => { setShowGmailPanel(false); setShowNotionPanel(!showNotionPanel); },
     },
     {
       title: "Gmail",
@@ -195,7 +195,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
         : gmail && gmail.count > 0
           ? gmail.messages[0]?.subject ?? "Nouveaux messages"
           : "Boîte de réception vide",
-      onClick: () => setShowGmailPanel(!showGmailPanel),
+      onClick: () => { setShowNotionPanel(false); setShowGmailPanel(!showGmailPanel); },
     },
     {
       title: "Infrastructure",
