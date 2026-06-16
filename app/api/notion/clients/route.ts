@@ -10,28 +10,47 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`https://api.notion.com/v1/data_sources/${CLIENTS_DB_ID}/query`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${NOTION_API_KEY}`,
-        "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ page_size: 100 }),
-    });
+    // Try both endpoints for querying
+    const endpoints = [
+      `https://api.notion.com/v1/data_sources/${CLIENTS_DB_ID}/query`,
+      `https://api.notion.com/v1/databases/${CLIENTS_DB_ID}/query`,
+    ];
 
-    if (!res.ok) {
-      const text = await res.text();
-      return NextResponse.json({ error: `Notion error: ${text}` }, { status: 500 });
+    let lastError = "";
+    let data: any = null;
+
+    for (const url of endpoints) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${NOTION_API_KEY}`,
+          "Notion-Version": NOTION_VERSION,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ page_size: 100 }),
+      });
+
+      if (res.ok) {
+        data = await res.json();
+        break;
+      } else {
+        lastError = await res.text();
+        console.error(`Notion clients error (${url}):`, lastError);
+      }
     }
 
-    const data = await res.json();
+    if (!data) {
+      return NextResponse.json(
+        { error: `Notion error: ${lastError}`, hint: "Vérifiez que l'intégration JARVIS est partagée avec la base Clients Comm'On" },
+        { status: 500 }
+      );
+    }
+
     const pages = data.results || [];
 
     const clients = pages
       .map((page: any) => {
         const props = page.properties || {};
-        // Try common title properties
         const titleProp =
           props["Nom"] ||
           props["Name"] ||
@@ -48,7 +67,7 @@ export async function GET(req: NextRequest) {
       .filter((c: any) => c.name && c.name !== "Sans nom")
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ clients });
+    return NextResponse.json({ clients, rawCount: pages.length });
   } catch (err) {
     console.error("Notion clients error:", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
