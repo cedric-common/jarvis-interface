@@ -49,13 +49,6 @@ export default function VoiceOrb({ isListening, onToggle }: VoiceOrbProps) {
             : "bg-white/5 border-2 border-white/10 hover:border-cyan-glow/30 hover:bg-cyan-glow/10"
         }`}
       >
-        {/* Inner rotating ring */}
-        <motion.div
-          className="absolute inset-2 rounded-full border border-dashed border-cyan-glow/30"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        />
-
         {/* Icon */}
         <motion.div
           animate={isListening ? { scale: [1, 1.2, 1] } : {}}
