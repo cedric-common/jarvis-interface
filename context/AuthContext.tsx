@@ -42,7 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select("id, email, full_name, role, notion_name, avatar_url, created_at, updated_at")
           .eq("id", user.id)
           .single();
+        // Fallback to Google metadata if profile fields are empty
+        if (data && !data.full_name && user.user_metadata?.full_name) {
+          data.full_name = user.user_metadata.full_name;
+        }
+        if (data && !data.notion_name && user.user_metadata?.full_name) {
+          data.notion_name = user.user_metadata.full_name;
+        }
         setProfile(data);
+      } else {
+        setProfile(null);
       }
       setIsLoading(false);
     };
@@ -63,7 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select("id, email, full_name, role, notion_name, avatar_url, created_at, updated_at")
           .eq("id", nextUser.id)
           .single()
-          .then(({ data }: { data: Profile | null }) => setProfile(data));
+          .then(({ data }: { data: Profile | null }) => {
+            // Fallback to Google metadata if profile fields are empty
+            if (data && !data.full_name && nextUser.user_metadata?.full_name) {
+              data.full_name = nextUser.user_metadata.full_name;
+            }
+            if (data && !data.notion_name && nextUser.user_metadata?.full_name) {
+              data.notion_name = nextUser.user_metadata.full_name;
+            }
+            setProfile(data);
+          });
       } else {
         setProfile(null);
       }

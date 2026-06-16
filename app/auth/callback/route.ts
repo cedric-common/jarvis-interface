@@ -38,27 +38,43 @@ export async function GET(request: NextRequest) {
   // Capture Google tokens for Gmail integration
   const refreshToken = (session as any).provider_refresh_token;
   const accessToken = (session as any).provider_token;
+  const fullName = session.user.user_metadata?.full_name;
+  const avatarUrl = session.user.user_metadata?.avatar_url;
   
   console.log("[auth/callback] provider_refresh_token present:", !!refreshToken);
   console.log("[auth/callback] provider_token present:", !!accessToken);
+  console.log("[auth/callback] full_name:", fullName);
   
   const updateData: any = { updated_at: new Date().toISOString() };
   if (refreshToken) updateData.google_refresh_token = refreshToken;
   if (accessToken) updateData.google_access_token = accessToken;
+  if (fullName) {
+    updateData.full_name = fullName;
+    // Also set notion_name if empty so Notion filtering works
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("notion_name")
+      .eq("id", session.user.id)
+      .single();
+    if (!existing?.notion_name) {
+      updateData.notion_name = fullName;
+    }
+  }
+  if (avatarUrl) updateData.avatar_url = avatarUrl;
   
-  if (refreshToken || accessToken) {
+  if (Object.keys(updateData).length > 1) { // >1 because updated_at is always there
     const { error: updateError } = await supabase
       .from("profiles")
       .update(updateData)
       .eq("id", session.user.id);
     
     if (updateError) {
-      console.error("[auth/callback] Failed to save tokens:", updateError.message);
+      console.error("[auth/callback] Failed to update profile:", updateError.message);
     } else {
-      console.log("[auth/callback] Tokens saved for user:", session.user.id);
+      console.log("[auth/callback] Profile updated for user:", session.user.id);
     }
   } else {
-    console.log("[auth/callback] No Google tokens in session");
+    console.log("[auth/callback] Nothing to update for profile");
   }
 
   return NextResponse.redirect(new URL("/", request.url));
