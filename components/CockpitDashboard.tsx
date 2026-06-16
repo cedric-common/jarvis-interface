@@ -31,6 +31,7 @@ type TaskData = {
   priority?: string;
   dueDate?: string | null;
   bucket?: "overdue" | "today" | "upcoming" | "unscheduled";
+  url?: string;
 };
 
 type GmailData = {
@@ -95,6 +96,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
   const [gmail, setGmail] = useState<GmailData | null>(null);
   const [gmailError, setGmailError] = useState(false);
   const [showGmailPanel, setShowGmailPanel] = useState(false);
+  const [showNotionPanel, setShowNotionPanel] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -177,7 +179,7 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
       accent: urgentTasks.length ? "text-rose-300" : "text-amber-300",
       body: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""}`,
       detail: urgentTasks.length ? `${urgentTasks.length} urgente${urgentTasks.length > 1 ? "s" : ""}` : tasks[0]?.title ?? "Rien d'urgent détecté",
-      onClick: () => onAction("Mes tâches du jour"),
+      onClick: () => setShowNotionPanel(!showNotionPanel),
     },
     {
       title: "Gmail",
@@ -305,6 +307,87 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
                 ))
               ) : (
                 <p className="text-xs text-white/45 px-2 py-3">Aucun email non lu.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Notion Panel */}
+        {showNotionPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-3 mb-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden"
+          >
+            <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 flex items-center gap-2">
+                <ListTodo className="w-3 h-3" /> Tâches Notion
+              </span>
+              <button
+                onClick={() => setShowNotionPanel(false)}
+                className="text-[10px] text-white/30 hover:text-white/60"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
+              {tasks.length === 0 ? (
+                <p className="text-xs text-white/45 px-2 py-3">Aucune tâche trouvée.</p>
+              ) : (
+                <>
+                  {overdueTasks.length > 0 && (
+                    <div className="px-2 py-1">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-rose-300/70 mb-1">En retard ({overdueTasks.length})</p>
+                      {overdueTasks.map((task) => (
+                        <a
+                          key={task.id || task.title}
+                          href={task.url || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-xl px-2.5 py-2 hover:bg-white/[0.07] transition-colors mb-1"
+                        >
+                          <p className="text-[11px] font-medium text-white truncate">{task.title}</p>
+                          <p className="text-[10px] text-white/45">{task.client || "Général"} · {formatTaskDate(task.dueDate)}</p>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {todayTasks.length > 0 && (
+                    <div className="px-2 py-1">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-300/70 mb-1">Aujourd'hui ({todayTasks.length})</p>
+                      {todayTasks.map((task) => (
+                        <a
+                          key={task.id || task.title}
+                          href={task.url || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-xl px-2.5 py-2 hover:bg-white/[0.07] transition-colors mb-1"
+                        >
+                          <p className="text-[11px] font-medium text-white truncate">{task.title}</p>
+                          <p className="text-[10px] text-white/45">{task.client || "Général"} · {task.priority || task.status || "à traiter"}</p>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {upcomingTasks.length > 0 && (
+                    <div className="px-2 py-1">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-white/35 mb-1">À venir ({upcomingTasks.length})</p>
+                      {upcomingTasks.map((task) => (
+                        <a
+                          key={task.id || task.title}
+                          href={task.url || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-xl px-2.5 py-2 hover:bg-white/[0.07] transition-colors mb-1"
+                        >
+                          <p className="text-[11px] font-medium text-white truncate">{task.title}</p>
+                          <p className="text-[10px] text-white/45">{task.client || "Général"} · {formatTaskDate(task.dueDate)}</p>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>
