@@ -139,22 +139,19 @@ function isDone(props: Record<string, NotionProperty>, doneProps: string[]) {
 
   const status = optionName(props["Statut"]).toLowerCase();
   const doneKeywords = [
-    "complété",
-    "complete",
-    "complet",
+    "complété", "complete", "complet",
     "fait",
+    "terminé", "termine",
+    "publié", "publie",
+    "validé", "valide",
+    "archivé", "archive",
     "done",
-    "terminé",
-    "termine",
-    "publié",
-    "publie",
-    "validé",
-    "valide",
-    "archivé",
-    "archive",
   ];
 
-  return doneKeywords.some((keyword) => status.includes(keyword));
+  return doneKeywords.some((keyword) => {
+    const re = new RegExp(`(^|\\s)${keyword}(\\s|$)`, "i");
+    return re.test(status);
+  });
 }
 
 function isArchived(props: Record<string, NotionProperty>, archiveProps: string[]) {
