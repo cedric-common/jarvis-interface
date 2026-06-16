@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, CalendarClock, CloudSun, ListTodo, LogOut, Mail, RadioTower, Server, Send, ShieldCheck, Zap } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, ListTodo, LogOut, Mail, RadioTower, Server, Send, ShieldCheck, Zap, Plus, Calendar } from "lucide-react";
 import { Profile } from "@/types/profile";
 
 type WeatherData = {
@@ -45,6 +45,17 @@ type GmailData = {
   }>;
 };
 
+type CalendarEvent = {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  location?: string;
+  hangoutLink?: string;
+  attendeeCount: number;
+};
+
 type VpsData = {
   id: number;
   hostname: string;
@@ -59,6 +70,7 @@ interface CockpitDashboardProps {
   onAction: (command: string) => void;
   profile?: Profile;
   onLogout?: () => void;
+  onContextChange?: (ctx: { tasks: TaskData[]; emails: any[]; vps: VpsData[]; calendar: CalendarEvent[] }) => void;
 }
 
 function formatTime(date: Date) {
@@ -87,7 +99,7 @@ function firstName(fullName?: string | null) {
   return fullName.split(" ")[0];
 }
 
-export default function CockpitDashboard({ onAction, profile, onLogout }: CockpitDashboardProps) {
+export default function CockpitDashboard({ onAction, profile, onLogout, onContextChange }: CockpitDashboardProps) {
   const [now, setNow] = useState(new Date());
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
@@ -96,7 +108,11 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
   const [gmail, setGmail] = useState<GmailData | null>(null);
   const [gmailError, setGmailError] = useState(false);
   const [showGmailPanel, setShowGmailPanel] = useState(false);
+  const [calendar, setCalendar] = useState<CalendarEvent[]>([]);
+  const [calendarError, setCalendarError] = useState(false);
   const [showNotionPanel, setShowNotionPanel] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [createTaskLoading, setCreateTaskLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,12 +125,13 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
 
     async function load() {
       try {
-        const [weatherRes, statusRes, tasksRes, vpsRes, gmailRes] = await Promise.allSettled([
+        const [weatherRes, statusRes, tasksRes, vpsRes, gmailRes, calendarRes] = await Promise.allSettled([
           fetch("/api/weather", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/status", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/notion-tasks", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/vps-metrics", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/gmail/unread", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/google/calendar", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         if (cancelled) return;
@@ -127,6 +144,21 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
           setGmailError(false);
         } else if (gmailRes.status === "fulfilled" && gmailRes.value.error) {
           setGmailError(true);
+        }
+        if (calendarRes.status === "fulfilled" && Array.isArray(calendarRes.value.events)) {
+          setCalendar(calendarRes.value.events);
+          setCalendarError(false);
+        } else if (calendarRes.status === "fulfilled" && calendarRes.value.error) {
+          setCalendarError(true);
+        }
+        // Notify parent of context snapshot
+        if (onContextChange && !cancelled) {
+          onContextChange({
+            tasks: tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value.tasks) ? tasksRes.value.tasks : [],
+            emails: gmailRes.status === "fulfilled" && gmailRes.value.messages ? gmailRes.value.messages : [],
+            vps: vpsRes.status === "fulfilled" && Array.isArray(vpsRes.value.vms) ? vpsRes.value.vms : [],
+            calendar: calendarRes.status === "fulfilled" && Array.isArray(calendarRes.value.events) ? calendarRes.value.events : [],
+          });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -162,6 +194,30 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
   const totalVps = vms.length || status?.totalVps || status?.vpsCount || 0;
   const infraOk = totalVps > 0 && runningVps === totalVps;
 
+  const handleCreateTask = async (title: string, date?: string, assignee?: string) => {
+    setCreateTaskLoading(true);
+    try {
+      const res = await fetch("/api/notion/create-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, date, assignee }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowCreateTask(false);
+        // Refresh tasks
+        const tasksRes = await fetch("/api/notion-tasks", { cache: "no-store" }).then((r) => r.json());
+        if (Array.isArray(tasksRes.tasks)) setTasks(tasksRes.tasks);
+      } else {
+        alert(data.error || "Erreur lors de la création");
+      }
+    } catch {
+      alert("Erreur réseau");
+    } finally {
+      setCreateTaskLoading(false);
+    }
+  };
+
   const cards = [
     {
       title: "Aujourd'hui",
@@ -196,6 +252,22 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
           ? gmail.messages[0]?.subject ?? "Nouveaux messages"
           : "Boîte de réception vide",
       onClick: () => { setShowNotionPanel(false); setShowGmailPanel(!showGmailPanel); },
+    },
+    {
+      title: "Calendrier",
+      icon: Calendar,
+      accent: calendarError ? "text-orange-300" : calendar.length > 0 ? "text-violet-300" : "text-white/35",
+      body: loading
+        ? "Synchronisation…"
+        : calendarError
+          ? "Non connecté"
+          : `${calendar.length} événement${calendar.length > 1 ? "s" : ""}`,
+      detail: calendarError
+        ? "Reconnecte-toi avec Google pour activer"
+        : calendar.length > 0
+          ? calendar[0].summary
+          : "Aucun événement aujourd'hui",
+      onClick: () => onAction("Quel est mon prochain rendez-vous ?"),
     },
     {
       title: "Infrastructure",
@@ -342,15 +414,29 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
               <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 flex items-center gap-2">
                 <ListTodo className="w-3 h-3" /> Tâches Notion
               </span>
-              <button
-                onClick={() => setShowNotionPanel(false)}
-                className="text-[10px] text-white/30 hover:text-white/60"
-              >
-                Fermer
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCreateTask(true)}
+                  className="text-[10px] text-cyan-300/70 hover:text-cyan-300 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Ajouter
+                </button>
+                <button
+                  onClick={() => setShowNotionPanel(false)}
+                  className="text-[10px] text-white/30 hover:text-white/60"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
             <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
-              {tasks.length === 0 ? (
+              {showCreateTask ? (
+                <CreateTaskForm
+                  onSubmit={handleCreateTask}
+                  onCancel={() => setShowCreateTask(false)}
+                  loading={createTaskLoading}
+                />
+              ) : tasks.length === 0 ? (
                 <p className="text-xs text-white/45 px-2 py-3">Aucune tâche trouvée.</p>
               ) : (
                 <>
@@ -496,5 +582,73 @@ export default function CockpitDashboard({ onAction, profile, onLogout }: Cockpi
         )}
       </div>
     </motion.section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Quick-create task form                                               */
+/* ------------------------------------------------------------------ */
+
+function CreateTaskForm({
+  onSubmit,
+  onCancel,
+  loading,
+}: {
+  onSubmit: (title: string, date?: string, assignee?: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [assignee, setAssignee] = useState("");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (title.trim()) onSubmit(title.trim(), date || undefined, assignee || undefined);
+      }}
+      className="p-2 space-y-2"
+    >
+      <input
+        type="text"
+        placeholder="Titre de la tâche..."
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
+        autoFocus
+      />
+      <div className="flex gap-2">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
+        />
+        <input
+          type="text"
+          placeholder="Assigné"
+          value={assignee}
+          onChange={(e) => setAssignee(e.target.value)}
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading || !title.trim()}
+          className="flex-1 rounded-xl bg-cyan-500/20 border border-cyan-400/30 px-3 py-2 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-40 transition-colors"
+        >
+          {loading ? "Création..." : "Créer"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/50 hover:text-white/80 transition-colors"
+        >
+          Annuler
+        </button>
+      </div>
+    </form>
   );
 }

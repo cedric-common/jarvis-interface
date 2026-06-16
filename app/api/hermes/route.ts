@@ -197,6 +197,51 @@ async function directAnswer(message: string) {
 const KIMI_SYSTEM_PROMPT = "Tu es Hermes Agent, l'assistant personnel de Cédric Tiberi dans l'interface JARVIS. Réponds en français, ton direct et efficace. Si une action réelle est demandée mais que tu n'as pas l'outil, dis-le clairement.";
 const HERMES_SYSTEM_PROMPT = "Tu réponds depuis l'interface vocale JARVIS de Cédric. Réponds en français, concis et opérationnel. Utilise tes outils Hermes si nécessaire.";
 
+function buildContextPrompt(context: Record<string, unknown>): string {
+  if (!context || Object.keys(context).length === 0) return "";
+  const parts: string[] = [];
+
+  const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+  const emails = Array.isArray(context.emails) ? context.emails : [];
+  const vps = Array.isArray(context.vps) ? context.vps : [];
+  const calendar = Array.isArray(context.calendar) ? context.calendar : [];
+
+  if (tasks.length > 0) {
+    const overdue = tasks.filter((t: any) => t.bucket === "overdue").length;
+    const today = tasks.filter((t: any) => t.bucket === "today").length;
+    const urgent = tasks.filter((t: any) => {
+      const combined = `${t.status || ""} ${t.priority || ""}`.toLowerCase();
+      return combined.includes("urgent") || combined.includes("haute");
+    }).length;
+    parts.push(`📋 Tâches Notion : ${tasks.length} au total — ${overdue} en retard, ${today} aujourd'hui, ${urgent} urgentes.`);
+    if (overdue > 0) {
+      const topOverdue = tasks.filter((t: any) => t.bucket === "overdue").slice(0, 3).map((t: any) => `- ${t.title}`).join("\n");
+      parts.push("En retard :\n" + topOverdue);
+    }
+  }
+
+  if (emails.length > 0) {
+    parts.push(`📧 Gmail : ${emails.length} emails non lus. Derniers : ${emails.slice(0, 2).map((e: any) => e.subject).join(", ")}.`);
+  }
+
+  if (vps.length > 0) {
+    const inactive = vps.filter((v: any) => v.state !== "running").length;
+    parts.push(`🖥️ VPS : ${vps.length} total — ${vps.length - inactive} actifs${inactive > 0 ? `, ${inactive} à vérifier` : ""}.`);
+  }
+
+  if (calendar.length > 0) {
+    const next = calendar[0];
+    const nextTime = next.start ? new Date(next.start).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
+    parts.push(`📅 Prochain événement : "${next.summary}"${nextTime ? ` à ${nextTime}` : ""}.`);
+    if (calendar.length > 1) {
+      parts.push(`${calendar.length - 1} autre(s) événement(s) aujourd'hui.`);
+    }
+  }
+
+  if (parts.length === 0) return "";
+  return "\n\n--- Contexte JARVIS ---\n" + parts.join("\n") + "\n--- Fin contexte ---\n";
+}
+
 function normalizeHistory(history: unknown) {
   return Array.isArray(history)
     ? history.slice(-10).map((m) => {
@@ -314,7 +359,7 @@ export async function POST(request: Request) {
     const kimiPrompt = userSystemPrompt || KIMI_SYSTEM_PROMPT;
 
     const body = await request.json();
-    const { message, history = [] } = body;
+    const { message, history = [], context } = body;
 
     if (!message || typeof message !== "string") {
       return new Response(
@@ -323,16 +368,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const contextPrompt = buildContextPrompt(context || {});
+    const hermesPromptWithContext = hermesPrompt + contextPrompt;
+    const kimiPromptWithContext = kimiPrompt + contextPrompt;
+
     const handled = await directAnswer(message).catch((error) => {
       console.error("Direct JARVIS answer failed:", error);
       return null;
     });
     if (handled) return sseText(handled);
 
-    const hermesResponse = await callHermes(message, history, hermesPrompt);
+    const hermesResponse = await callHermes(message, history, hermesPromptWithContext);
     if (hermesResponse) return sseFromOpenAIStream(hermesResponse);
 
-    const kimiResponse = await callKimi(message, history, kimiPrompt);
+    const kimiResponse = await callKimi(message, history, kimiPromptWithContext);
     if (kimiResponse) return sseFromOpenAIStream(kimiResponse);
 
     return sseText("Je n'arrive pas à joindre Hermes pour l'instant. Les actions directes comme météo, VPS et sites restent disponibles.");

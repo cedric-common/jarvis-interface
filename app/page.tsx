@@ -22,6 +22,7 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [conversationMode, setConversationMode] = useState(false);
   const [isSpeakingTTS, setIsSpeakingTTS] = useState(false);
+  const [cockpitContext, setCockpitContext] = useState<Record<string, unknown>>({});
 
   const {
     isListening,
@@ -86,7 +87,7 @@ export default function Home() {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history }),
+        body: JSON.stringify({ message: text, history, context: cockpitContext }),
       });
       window.clearTimeout(timeout);
 
@@ -348,7 +349,7 @@ export default function Home() {
       <HUDCanvas />
 
       {/* Cockpit Dashboard */}
-      <CockpitDashboard onAction={handleQuickAction} profile={profile ?? undefined} />
+      <CockpitDashboard onAction={handleQuickAction} profile={profile ?? undefined} onContextChange={setCockpitContext} />
 
       {/* Top bar */}
       <motion.header
