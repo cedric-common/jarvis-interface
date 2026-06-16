@@ -138,20 +138,7 @@ function isDone(props: Record<string, NotionProperty>, doneProps: string[]) {
   if (doneProps.some((name) => props[name]?.checkbox === true)) return true;
 
   const status = optionName(props["Statut"]).toLowerCase();
-  const doneKeywords = [
-    "complété", "complete", "complet",
-    "fait",
-    "terminé", "termine",
-    "publié", "publie",
-    "validé", "valide",
-    "archivé", "archive",
-    "done",
-  ];
-
-  return doneKeywords.some((keyword) => {
-    const re = new RegExp(`(^|\\s)${keyword}(\\s|$)`, "i");
-    return re.test(status);
-  });
+  return status === "complété";
 }
 
 function isArchived(props: Record<string, NotionProperty>, archiveProps: string[]) {
